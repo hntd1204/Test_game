@@ -1,11 +1,12 @@
 <?php
 $host = 'localhost';
-$user = 'root'; // Sửa lại nếu bạn có mật khẩu mysql
-$pass = '';
-$dbname = 'idle_game';
+$dbname = 'ai_tasks_db';
+$username = 'root'; // Thay bằng user của bạn
+$password = '';     // Thay bằng pass của bạn
 
-$conn = new mysqli($host, $user, $pass, $dbname);
-
-if ($conn->connect_error) {
-    die("Kết nối thất bại: " . $conn->connect_error);
+try {
+    $pdo = new PDO("mysql:host=$host;dbname=$dbname;charset=utf8mb4", $username, $password);
+    $pdo->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
+} catch (PDOException $e) {
+    die("Lỗi kết nối cơ sở dữ liệu: " . $e->getMessage());
 }
