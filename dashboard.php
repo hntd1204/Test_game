@@ -43,11 +43,10 @@ $user = $stmt->fetch();
             <div
                 class="bg-gradient-to-br from-blue-500 to-blue-700 p-5 sm:p-6 rounded-2xl shadow-lg text-white relative overflow-hidden">
                 <h3 class="text-blue-100 text-xs sm:text-sm font-semibold uppercase tracking-wider mb-1 sm:mb-2">Số dư
-                    may mắn</h3>
+                    hiện tại</h3>
                 <div class="text-3xl sm:text-4xl font-bold"><span
                         id="balance"><?= number_format($user['balance']) ?></span> <span
                         class="text-lg sm:text-xl">VNĐ</span></div>
-                <p class="text-blue-200 text-[10px] sm:text-xs mt-2 italic">* Số dư reset về 0 mỗi nửa đêm</p>
                 <div class="absolute -bottom-4 -right-4 text-white opacity-20 text-6xl sm:text-7xl">💰</div>
             </div>
 
@@ -84,10 +83,114 @@ $user = $stmt->fetch();
                 class="mt-4 sm:mt-6 min-h-[32px] sm:min-h-[40px] text-lg sm:text-xl font-bold transition-all duration-300 flex items-center justify-center">
             </div>
         </div>
+
+        <div class="mt-8 grid grid-cols-1 md:grid-cols-2 gap-6 max-w-4xl mx-auto">
+
+            <div class="bg-white p-6 rounded-2xl shadow-lg border border-slate-100 flex flex-col justify-between">
+                <div>
+                    <h3 class="text-lg font-bold text-slate-800 mb-2">💸 Rút Tiền</h3>
+                    <p class="text-sm text-slate-600 mb-4">Tối thiểu rút 10.000 VNĐ. Tiền sẽ bị trừ ngay và chờ Admin
+                        duyệt.</p>
+                </div>
+                <div class="flex gap-2">
+                    <input type="number" id="withdrawAmount" placeholder="Nhập số tiền..."
+                        class="flex-1 px-4 py-3 rounded-xl border focus:outline-none focus:ring-2 focus:ring-blue-500 font-bold">
+                    <button onclick="requestWithdraw()"
+                        class="bg-blue-600 hover:bg-blue-700 text-white font-bold px-6 py-3 rounded-xl shadow-md active:scale-95 whitespace-nowrap transition-all">
+                        Rút Ngay
+                    </button>
+                </div>
+
+                <div class="mt-4 pt-4 border-t border-slate-100 max-h-32 overflow-y-auto">
+                    <p class="text-xs font-bold text-slate-500 mb-2">LỊCH SỬ RÚT GẦN ĐÂY:</p>
+                    <?php
+                    try {
+                        $wdStmt = $pdo->prepare("SELECT amount, status, created_at FROM withdrawals WHERE user_id = ? ORDER BY id DESC LIMIT 5");
+                        $wdStmt->execute([$_SESSION['user_id']]);
+                        $withdrawals = $wdStmt->fetchAll();
+                        if (count($withdrawals) > 0) {
+                            foreach ($withdrawals as $w) {
+                                $statusBadge = $w['status'] == 'pending' ? '<span class="text-yellow-500">Chờ duyệt</span>' : ($w['status'] == 'approved' ? '<span class="text-green-500">Thành công</span>' :
+                                    '<span class="text-red-500">Từ chối</span>');
+                                echo '<div class="text-sm flex justify-between py-1 border-b border-slate-50 last:border-0">';
+                                echo '<span>' . number_format($w['amount']) . 'đ</span>';
+                                echo '<span class="font-bold">' . $statusBadge . '</span>';
+                                echo '</div>';
+                            }
+                        } else {
+                            echo '<p class="text-xs text-slate-400">Chưa có lịch sử</p>';
+                        }
+                    } catch (Exception $e) {
+                        echo '<p class="text-xs text-slate-400">Hệ thống đang cập nhật tính năng rút tiền...</p>';
+                    }
+                    ?>
+                </div>
+            </div>
+
+            <div class="bg-white p-6 rounded-2xl shadow-lg border border-slate-100 flex flex-col justify-between">
+                <div>
+                    <h3 class="text-lg font-bold text-slate-800 mb-2">🛍️ Cửa Hàng</h3>
+                    <p class="text-sm text-slate-600 mb-4">Dùng số dư để mua thêm lượt hoặc đổi quà tặng.</p>
+                </div>
+
+                <div class="space-y-3 max-h-[250px] overflow-y-auto pr-1">
+                    <button onclick="buyAction('buy_spin')"
+                        class="w-full flex justify-between items-center bg-orange-50 hover:bg-orange-100 p-3 rounded-xl border border-orange-200 transition-all active:scale-95">
+                        <span class="font-bold text-orange-700">1 Lượt Quay</span>
+                        <span class="bg-orange-500 text-white text-xs font-bold px-3 py-1 rounded-full">50.000
+                            VNĐ</span>
+                    </button>
+
+                    <?php
+                    try {
+                        $shopStmt = $pdo->query("SELECT * FROM shop_items WHERE is_active = 1 ORDER BY cost ASC");
+                        while ($item = $shopStmt->fetch()):
+                    ?>
+                    <button
+                        onclick="buyAction('buy_gift', <?= $item['id'] ?>, '<?= htmlspecialchars($item['name']) ?>', <?= $item['cost'] ?>)"
+                        class="w-full flex justify-between items-center bg-green-50 hover:bg-green-100 p-3 rounded-xl border border-green-200 transition-all active:scale-95">
+                        <span class="font-bold text-green-700"><?= htmlspecialchars($item['name']) ?></span>
+                        <span
+                            class="bg-green-500 text-white text-xs font-bold px-3 py-1 rounded-full"><?= number_format($item['cost']) ?>
+                            VNĐ</span>
+                    </button>
+                    <?php
+                        endwhile;
+                    } catch (Exception $e) {
+                        echo '<p class="text-xs text-slate-400 text-center">Đang tải cửa hàng...</p>';
+                    }
+                    ?>
+                </div>
+
+                <div class="mt-4 pt-4 border-t border-slate-100 max-h-32 overflow-y-auto">
+                    <p class="text-xs font-bold text-slate-500 mb-2">LỊCH SỬ ĐỔI QUÀ:</p>
+                    <?php
+                    try {
+                        $giftStmt = $pdo->prepare("SELECT gift_name, cost, status, created_at FROM user_gifts WHERE user_id = ? ORDER BY id DESC LIMIT 5");
+                        $giftStmt->execute([$_SESSION['user_id']]);
+                        $gifts = $giftStmt->fetchAll();
+                        if (count($gifts) > 0) {
+                            foreach ($gifts as $g) {
+                                $statusBadge = $g['status'] == 'pending' ? '<span class="text-yellow-500">Chờ xử lý</span>' : ($g['status'] == 'completed' ? '<span class="text-green-500">Thành công</span>' :
+                                    '<span class="text-red-500">Từ chối</span>');
+                                echo '<div class="text-sm flex justify-between py-1 border-b border-slate-50 last:border-0">';
+                                echo '<span class="text-slate-700">' . htmlspecialchars($g['gift_name']) . '</span>';
+                                echo '<span class="font-bold">' . $statusBadge . '</span>';
+                                echo '</div>';
+                            }
+                        } else {
+                            echo '<p class="text-xs text-slate-400">Chưa có lịch sử</p>';
+                        }
+                    } catch (Exception $e) {
+                    }
+                    ?>
+                </div>
+            </div>
+
+        </div>
     </main>
 
     <script>
-    // JS không thay đổi, vẫn mượt mà như cũ
     document.getElementById('spinBtn').addEventListener('click', async function() {
         const btn = this;
         const msg = document.getElementById('resultMsg');
@@ -142,6 +245,59 @@ $user = $stmt->fetch();
             btn.disabled = false;
         }
     });
+
+    // Tính năng Rút Tiền
+    async function requestWithdraw() {
+        const amount = document.getElementById('withdrawAmount').value;
+        if (!amount || amount < 10000) return alert("Vui lòng nhập số tiền hợp lệ (Tối thiểu 10k)!");
+
+        if (!confirm(`Bạn chắc chắn muốn rút ${Number(amount).toLocaleString()} VNĐ?`)) return;
+
+        const formData = new FormData();
+        formData.append('action', 'withdraw');
+        formData.append('amount', amount);
+
+        await sendAction(formData);
+        setTimeout(() => location.reload(), 1500); // Reload cập nhật bảng
+    }
+
+    // Tính năng Mua đồ trong Shop
+    async function buyAction(actionName, itemId = null, giftName = '', cost = 0) {
+        let msg = actionName === 'buy_spin' ? "Mua 1 lượt quay với giá 20.000 VNĐ?" :
+            `Đổi ${giftName} với giá ${Number(cost).toLocaleString()} VNĐ?`;
+        if (!confirm(msg)) return;
+
+        const formData = new FormData();
+        formData.append('action', actionName);
+        if (itemId) formData.append('item_id', itemId);
+
+        await sendAction(formData);
+    }
+
+    // Hàm gọi API dùng chung
+    async function sendAction(formData) {
+        try {
+            const res = await fetch('user_actions.php', {
+                method: 'POST',
+                body: formData
+            });
+            const data = await res.json();
+
+            if (data.success) {
+                alert("🎉 " + data.message);
+                document.getElementById('balance').innerText = data.new_balance.toLocaleString();
+                if (data.spins_left !== undefined) {
+                    document.getElementById('spins').innerText = data.spins_left;
+                    if (data.spins_left > 0) document.getElementById('spinBtn').disabled = false;
+                }
+            } else {
+                alert("❌ " + data.error);
+            }
+        } catch (err) {
+            alert("Lỗi kết nối!");
+            console.error(err);
+        }
+    }
     </script>
 </body>
 

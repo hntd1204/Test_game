@@ -46,7 +46,53 @@ if (isset($_POST['adjust_spins'])) {
         $_SESSION['msg'] = "❌ Vui lòng chọn một người dùng và nhập số lượt hợp lệ!";
     }
 
-    header("Location: admin.php"); // Chuyển hướng để tránh lỗi F5
+    header("Location: admin.php");
+    exit;
+}
+
+// 3. Xử lý Duyệt / Từ chối Rút tiền
+if (isset($_POST['handle_withdraw'])) {
+    $wd_id = (int)$_POST['withdraw_id'];
+    $wd_action = $_POST['withdraw_action']; // 'approve' hoặc 'reject'
+
+    // Lấy thông tin phiếu rút
+    $wdStmt = $pdo->prepare("SELECT * FROM withdrawals WHERE id = ? AND status = 'pending'");
+    $wdStmt->execute([$wd_id]);
+    $wd = $wdStmt->fetch();
+
+    if ($wd) {
+        if ($wd_action === 'approve') {
+            $pdo->prepare("UPDATE withdrawals SET status = 'approved' WHERE id = ?")->execute([$wd_id]);
+            $_SESSION['msg'] = "✅ Đã DUYỆT phiếu rút tiền #$wd_id!";
+        } elseif ($wd_action === 'reject') {
+            // Từ chối -> Hoàn lại tiền cho user
+            $pdo->prepare("UPDATE withdrawals SET status = 'rejected' WHERE id = ?")->execute([$wd_id]);
+            $pdo->prepare("UPDATE users SET balance = balance + ? WHERE id = ?")->execute([$wd['amount'], $wd['user_id']]);
+            $_SESSION['msg'] = "❌ Đã TỪ CHỐI phiếu #$wd_id và hoàn tiền cho User!";
+        }
+    }
+    header("Location: admin.php");
+    exit;
+}
+
+// 4. Xử lý Thêm quà vào Shop
+if (isset($_POST['add_shop_item'])) {
+    $name = trim($_POST['item_name']);
+    $cost = (int)$_POST['item_cost'];
+    if (!empty($name) && $cost > 0) {
+        $pdo->prepare("INSERT INTO shop_items (name, cost) VALUES (?, ?)")->execute([$name, $cost]);
+        $_SESSION['msg'] = "✅ Đã thêm món quà mới vào Shop!";
+    }
+    header("Location: admin.php");
+    exit;
+}
+
+// 5. Xử lý Xóa quà khỏi Shop
+if (isset($_POST['delete_shop_item'])) {
+    $id = (int)$_POST['item_id'];
+    $pdo->prepare("DELETE FROM shop_items WHERE id = ?")->execute([$id]);
+    $_SESSION['msg'] = "✅ Đã xóa quà tặng khỏi Shop!";
+    header("Location: admin.php");
     exit;
 }
 
@@ -65,8 +111,31 @@ $history_stmt = $pdo->query("
     ORDER BY h.id DESC LIMIT 50
 ");
 $histories = $history_stmt->fetchAll();
-// Biến giữ ID lớn nhất để dùng cho JS Polling (kiểm tra thông báo mới)
 $max_history_id = count($histories) > 0 ? $histories[0]['id'] : 0;
+
+// 6. Xử lý Duyệt / Từ chối Đơn Đổi Quà
+if (isset($_POST['handle_gift'])) {
+    $gift_id = (int)$_POST['gift_id'];
+    $gift_action = $_POST['gift_action'];
+
+    $gStmt = $pdo->prepare("SELECT * FROM user_gifts WHERE id = ? AND status = 'pending'");
+    $gStmt->execute([$gift_id]);
+    $gift = $gStmt->fetch();
+
+    if ($gift) {
+        if ($gift_action === 'complete') {
+            $pdo->prepare("UPDATE user_gifts SET status = 'completed' WHERE id = ?")->execute([$gift_id]);
+            $_SESSION['msg'] = "✅ Đã xác nhận giao quà thành công đơn #$gift_id!";
+        } elseif ($gift_action === 'reject') {
+            // Hoàn lại tiền cho user
+            $pdo->prepare("UPDATE user_gifts SET status = 'rejected' WHERE id = ?")->execute([$gift_id]);
+            $pdo->prepare("UPDATE users SET balance = balance + ? WHERE id = ?")->execute([$gift['cost'], $gift['user_id']]);
+            $_SESSION['msg'] = "❌ Đã TỪ CHỐI đơn đổi quà #$gift_id và hoàn tiền cho User!";
+        }
+    }
+    header("Location: admin.php");
+    exit;
+}
 ?>
 
 <!DOCTYPE html>
@@ -151,6 +220,58 @@ $max_history_id = count($histories) > 0 ? $histories[0]['id'] : 0;
                 </div>
 
                 <div class="bg-white p-6 rounded-2xl shadow-sm border border-slate-200">
+                    <h2 class="text-lg font-bold text-slate-800 mb-4 border-b pb-2">🛒 Quản Lý Shop Đổi Quà</h2>
+
+                    <form method="POST" class="flex gap-2 mb-4">
+                        <input type="text" name="item_name" placeholder="Tên món quà..." required
+                            class="flex-1 px-3 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 outline-none text-sm bg-slate-50">
+                        <input type="number" name="item_cost" placeholder="Giá VNĐ" required
+                            class="w-1/3 px-3 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 outline-none text-sm bg-slate-50">
+                        <button type="submit" name="add_shop_item"
+                            class="bg-green-600 hover:bg-green-700 text-white font-medium px-4 py-2 rounded-lg transition shadow-sm text-sm whitespace-nowrap">Thêm</button>
+                    </form>
+
+                    <div class="overflow-y-auto max-h-[200px]">
+                        <table class="w-full text-left text-sm text-slate-600">
+                            <thead class="bg-slate-100 text-slate-700 sticky top-0">
+                                <tr>
+                                    <th class="px-3 py-2">Tên quà</th>
+                                    <th class="px-3 py-2">Giá tiền</th>
+                                    <th class="px-3 py-2 text-right">Xóa</th>
+                                </tr>
+                            </thead>
+                            <tbody class="divide-y divide-slate-100">
+                                <?php
+                                try {
+                                    $items_stmt = $pdo->query("SELECT * FROM shop_items ORDER BY cost ASC");
+                                    while ($item = $items_stmt->fetch()):
+                                ?>
+                                <tr class="hover:bg-slate-50">
+                                    <td class="px-3 py-2 font-medium text-slate-800">
+                                        <?= htmlspecialchars($item['name']) ?></td>
+                                    <td class="px-3 py-2 font-bold text-green-600"><?= number_format($item['cost']) ?>đ
+                                    </td>
+                                    <td class="px-3 py-2 text-right">
+                                        <form method="POST"
+                                            onsubmit="return confirm('Bạn có chắc muốn xóa món quà này khỏi Shop?');">
+                                            <input type="hidden" name="item_id" value="<?= $item['id'] ?>">
+                                            <button type="submit" name="delete_shop_item"
+                                                class="text-red-500 hover:text-red-700 font-bold bg-red-50 hover:bg-red-100 px-2 py-1 rounded">Xóa</button>
+                                        </form>
+                                    </td>
+                                </tr>
+                                <?php
+                                    endwhile;
+                                } catch (Exception $e) {
+                                    echo "<tr><td colspan='3' class='text-center py-2'>Chưa tạo bảng shop_items</td></tr>";
+                                }
+                                ?>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+
+                <div class="bg-white p-6 rounded-2xl shadow-sm border border-slate-200">
                     <h2 class="text-lg font-bold text-slate-800 mb-4 border-b pb-2">Danh Sách Người Dùng</h2>
                     <div class="overflow-y-auto max-h-[300px]">
                         <table class="w-full text-left text-sm text-slate-600">
@@ -178,9 +299,137 @@ $max_history_id = count($histories) > 0 ? $histories[0]['id'] : 0;
                         </table>
                     </div>
                 </div>
+
+                <div class="bg-white p-6 rounded-2xl shadow-sm border border-slate-200">
+                    <h2 class="text-lg font-bold text-slate-800 mb-4 border-b pb-2">Duyệt Yêu Cầu Rút Tiền</h2>
+                    <div class="overflow-y-auto max-h-[300px]">
+                        <table class="w-full text-left text-sm text-slate-600">
+                            <thead class="bg-slate-100 text-slate-700 sticky top-0">
+                                <tr>
+                                    <th class="px-3 py-2">Tài khoản</th>
+                                    <th class="px-3 py-2">Số tiền</th>
+                                    <th class="px-3 py-2">Trạng thái</th>
+                                    <th class="px-3 py-2 text-right">Hành động</th>
+                                </tr>
+                            </thead>
+                            <tbody class="divide-y divide-slate-100">
+                                <?php
+                                try {
+                                    $wd_stmt = $pdo->query("SELECT w.*, u.username FROM withdrawals w JOIN users u ON w.user_id = u.id ORDER BY w.id DESC");
+                                    while ($w = $wd_stmt->fetch()):
+                                ?>
+                                <tr class="hover:bg-slate-50">
+                                    <td class="px-3 py-3 font-medium text-slate-800">
+                                        <?= htmlspecialchars($w['username']) ?></td>
+                                    <td class="px-3 py-3 font-bold text-blue-600"><?= number_format($w['amount']) ?>đ
+                                    </td>
+                                    <td class="px-3 py-3">
+                                        <?php if ($w['status'] == 'pending'): ?>
+                                        <span
+                                            class="bg-yellow-100 text-yellow-700 px-2 py-1 rounded text-xs font-bold">Chờ
+                                            duyệt</span>
+                                        <?php elseif ($w['status'] == 'approved'): ?>
+                                        <span class="bg-green-100 text-green-700 px-2 py-1 rounded text-xs font-bold">Đã
+                                            duyệt</span>
+                                        <?php else: ?>
+                                        <span class="bg-red-100 text-red-700 px-2 py-1 rounded text-xs font-bold">Từ
+                                            chối</span>
+                                        <?php endif; ?>
+                                    </td>
+                                    <td class="px-3 py-3 text-right">
+                                        <?php if ($w['status'] == 'pending'): ?>
+                                        <form method="POST" class="inline-flex gap-1">
+                                            <input type="hidden" name="withdraw_id" value="<?= $w['id'] ?>">
+                                            <button type="submit" name="handle_withdraw" value="1"
+                                                onclick="document.getElementById('wd_act_<?= $w['id'] ?>').value='approve'"
+                                                class="bg-green-500 hover:bg-green-600 text-white px-2 py-1 rounded text-xs font-bold">Duyệt</button>
+                                            <button type="submit" name="handle_withdraw" value="1"
+                                                onclick="document.getElementById('wd_act_<?= $w['id'] ?>').value='reject'"
+                                                class="bg-red-500 hover:bg-red-600 text-white px-2 py-1 rounded text-xs font-bold">Hủy</button>
+                                            <input type="hidden" id="wd_act_<?= $w['id'] ?>" name="withdraw_action"
+                                                value="">
+                                        </form>
+                                        <?php endif; ?>
+                                    </td>
+                                </tr>
+                                <?php
+                                    endwhile;
+                                } catch (Exception $e) {
+                                    echo "<tr><td colspan='4' class='text-center py-2'>Chưa có bảng rút tiền trong DB</td></tr>";
+                                }
+                                ?>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+
+                <div class="bg-white p-6 rounded-2xl shadow-sm border border-slate-200">
+                    <h2 class="text-lg font-bold text-slate-800 mb-4 border-b pb-2">🎁 Quản Lý Đơn Đổi Quà</h2>
+                    <div class="overflow-y-auto max-h-[300px]">
+                        <table class="w-full text-left text-sm text-slate-600">
+                            <thead class="bg-slate-100 text-slate-700 sticky top-0">
+                                <tr>
+                                    <th class="px-3 py-2">Tài khoản</th>
+                                    <th class="px-3 py-2">Món quà</th>
+                                    <th class="px-3 py-2">Trạng thái</th>
+                                    <th class="px-3 py-2 text-right">Hành động</th>
+                                </tr>
+                            </thead>
+                            <tbody class="divide-y divide-slate-100">
+                                <?php
+                                try {
+                                    $gifts_stmt = $pdo->query("SELECT g.*, u.username FROM user_gifts g JOIN users u ON g.user_id = u.id ORDER BY g.id DESC");
+                                    while ($g = $gifts_stmt->fetch()):
+                                ?>
+                                <tr class="hover:bg-slate-50">
+                                    <td class="px-3 py-3 font-medium text-slate-800">
+                                        <?= htmlspecialchars($g['username']) ?></td>
+                                    <td class="px-3 py-3 font-bold text-green-600">
+                                        <?= htmlspecialchars($g['gift_name']) ?></td>
+                                    <td class="px-3 py-3">
+                                        <?php if ($g['status'] == 'pending'): ?>
+                                        <span
+                                            class="bg-yellow-100 text-yellow-700 px-2 py-1 rounded text-xs font-bold">Chờ
+                                            xử lý</span>
+                                        <?php elseif ($g['status'] == 'completed'): ?>
+                                        <span class="bg-green-100 text-green-700 px-2 py-1 rounded text-xs font-bold">Đã
+                                            trao</span>
+                                        <?php else: ?>
+                                        <span class="bg-red-100 text-red-700 px-2 py-1 rounded text-xs font-bold">Đã
+                                            hủy</span>
+                                        <?php endif; ?>
+                                    </td>
+                                    <td class="px-3 py-3 text-right">
+                                        <?php if ($g['status'] == 'pending'): ?>
+                                        <form method="POST" class="inline-flex gap-1">
+                                            <input type="hidden" name="gift_id" value="<?= $g['id'] ?>">
+                                            <button type="submit" name="handle_gift" value="1"
+                                                onclick="document.getElementById('gf_act_<?= $g['id'] ?>').value='complete'"
+                                                class="bg-green-500 hover:bg-green-600 text-white px-2 py-1 rounded text-xs font-bold">Hoàn
+                                                thành</button>
+                                            <button type="submit" name="handle_gift" value="1"
+                                                onclick="document.getElementById('gf_act_<?= $g['id'] ?>').value='reject'"
+                                                class="bg-red-500 hover:bg-red-600 text-white px-2 py-1 rounded text-xs font-bold">Hủy</button>
+                                            <input type="hidden" id="gf_act_<?= $g['id'] ?>" name="gift_action"
+                                                value="">
+                                        </form>
+                                        <?php endif; ?>
+                                    </td>
+                                </tr>
+                                <?php
+                                    endwhile;
+                                } catch (Exception $e) {
+                                    echo "<tr><td colspan='4' class='text-center py-2'>Chưa có lịch sử đổi quà</td></tr>";
+                                }
+                                ?>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+
             </div>
 
-            <div class="bg-white p-6 rounded-2xl shadow-sm border border-slate-200">
+            <div class="bg-white p-6 rounded-2xl shadow-sm border border-slate-200 h-fit sticky top-24">
                 <div class="flex justify-between items-center mb-4 border-b pb-2">
                     <h2 class="text-lg font-bold text-slate-800">Lịch Sử Quay Gần Đây</h2>
                     <span class="relative flex h-3 w-3">
@@ -224,15 +473,12 @@ $max_history_id = count($histories) > 0 ? $histories[0]['id'] : 0;
     </main>
 
     <script>
-    // Lấy ID cuối cùng khi load trang
     let lastId = <?= $max_history_id ?>;
 
-    // Hàm tạo Toast Notification
     function showToast(username, reward) {
         const container = document.getElementById('toast-container');
         const toast = document.createElement('div');
 
-        // Thiết kế giao diện Toast
         toast.className =
             'bg-white border-l-4 border-green-500 shadow-xl rounded-lg p-4 flex items-center gap-4 transform transition-all duration-300 translate-x-10 opacity-0 min-w-[300px]';
 
@@ -245,30 +491,26 @@ $max_history_id = count($histories) > 0 ? $histories[0]['id'] : 0;
             `;
         container.appendChild(toast);
 
-        // Hiệu ứng trượt vào
         setTimeout(() => {
             toast.classList.remove('translate-x-10', 'opacity-0');
             toast.classList.add('translate-x-0', 'opacity-100');
         }, 10);
 
-        // Tự động xóa sau 5 giây
         setTimeout(() => {
             toast.classList.add('opacity-0', 'translate-x-10');
             setTimeout(() => toast.remove(), 300);
         }, 5000);
     }
 
-    // Hàm thêm lịch sử mới vào đầu bảng
     function prependHistory(item) {
         const tbody = document.getElementById('history-table-body');
 
-        // Xóa thông báo "Chưa có lịch sử" nếu có
         if (tbody.querySelector('td[colspan="3"]')) {
             tbody.innerHTML = '';
         }
 
         const tr = document.createElement('tr');
-        tr.className = 'transition bg-yellow-100'; // Highlight màu vàng khi mới xuất hiện
+        tr.className = 'transition bg-yellow-100';
 
         const date = new Date(item.created_at);
         const timeStr = ('0' + date.getHours()).slice(-2) + ':' + ('0' + date.getMinutes()).slice(-2) + ':' + ('0' +
@@ -283,14 +525,12 @@ $max_history_id = count($histories) > 0 ? $histories[0]['id'] : 0;
 
         tbody.prepend(tr);
 
-        // Xóa hiệu ứng highlight sau 2 giây
         setTimeout(() => {
             tr.classList.remove('bg-yellow-100');
             tr.classList.add('hover:bg-slate-50');
         }, 2000);
     }
 
-    // Tạo vòng lặp Fetch (Polling) mỗi 3 giây để check lịch sử mới
     setInterval(async () => {
         try {
             const res = await fetch(`get_new_spins.php?last_id=${lastId}`);
@@ -302,7 +542,6 @@ $max_history_id = count($histories) > 0 ? $histories[0]['id'] : 0;
                 data.forEach(item => {
                     showToast(item.username, item.reward);
                     prependHistory(item);
-                    // Cập nhật lastId lên lớn nhất
                     if (parseInt(item.id) > lastId) {
                         lastId = parseInt(item.id);
                     }
