@@ -36,9 +36,13 @@ try {
     $newBalance = $user['balance'] + $reward;
     $spinsLeft = $user['spins_available'] - 1;
 
-    // 4. Cập nhật vào DB
+    // 4. Cập nhật vào DB (Tài khoản người dùng)
     $updateStmt = $pdo->prepare("UPDATE users SET balance = ?, spins_available = ? WHERE id = ?");
     $updateStmt->execute([$newBalance, $spinsLeft, $userId]);
+
+    // LƯU LỊCH SỬ QUAY VÀO BẢNG spin_history
+    $insertHistory = $pdo->prepare("INSERT INTO spin_history (user_id, reward) VALUES (?, ?)");
+    $insertHistory->execute([$userId, $reward]);
 
     $pdo->commit();
 
