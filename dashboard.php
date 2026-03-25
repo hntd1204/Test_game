@@ -7,9 +7,27 @@ if (!isset($_SESSION['user_id']) || $_SESSION['role'] !== 'user') {
     exit;
 }
 
-$stmt = $pdo->prepare("SELECT balance, spins_available FROM users WHERE id = ?");
+// Lấy thông tin user (thêm baucua_count để phục vụ nhiệm vụ)
+$stmt = $pdo->prepare("SELECT balance, spins_available, baucua_count FROM users WHERE id = ?");
 $stmt->execute([$_SESSION['user_id']]);
 $user = $stmt->fetch();
+
+// Lấy cấu hình nhiệm vụ từ Admin
+try {
+    $mission = $pdo->query("SELECT target_count, reward_spins FROM mission_settings WHERE id = 1")->fetch();
+} catch (Exception $e) {
+    // Giá trị mặc định nếu chưa chạy SQL tạo bảng mission_settings
+    $mission = ['target_count' => 5, 'reward_spins' => 1];
+}
+
+// Truy vấn lịch sử quay thưởng cá nhân
+try {
+    $myHistoryStmt = $pdo->prepare("SELECT reward, created_at FROM spin_history WHERE user_id = ? ORDER BY id DESC LIMIT 10");
+    $myHistoryStmt->execute([$_SESSION['user_id']]);
+    $myHistories = $myHistoryStmt->fetchAll();
+} catch (Exception $e) {
+    $myHistories = [];
+}
 ?>
 <!DOCTYPE html>
 <html lang="vi">
@@ -22,6 +40,22 @@ $user = $stmt->fetch();
     <style>
         .number-display {
             font-variant-numeric: tabular-nums;
+        }
+
+        @keyframes pulse-custom {
+
+            0%,
+            100% {
+                opacity: 1;
+            }
+
+            50% {
+                opacity: 0.7;
+            }
+        }
+
+        .animate-pulse-custom {
+            animation: pulse-custom 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
         }
     </style>
 </head>
@@ -39,6 +73,28 @@ $user = $stmt->fetch();
     </nav>
 
     <main class="max-w-4xl mx-auto mt-6 sm:mt-10 px-4 pb-10">
+
+        <div class="bg-white p-5 rounded-2xl shadow-sm border border-slate-200 mb-6">
+            <div class="flex justify-between items-center mb-3">
+                <h3 class="text-sm font-bold text-slate-700 uppercase">🎯 Nhiệm vụ hiện tại</h3>
+                <span class="text-xs font-bold text-purple-600 bg-purple-50 px-2 py-1 rounded">Thưởng
+                    +<?= $mission['reward_spins'] ?> lượt quay</span>
+            </div>
+            <p class="text-xs text-slate-500 mb-3">Chơi đủ <?= $mission['target_count'] ?> ván Bầu Cua để nhận thưởng
+                lượt quay miễn phí.</p>
+            <div class="w-full bg-slate-100 rounded-full h-2.5 mb-1">
+                <?php
+                $progress = min(100, ($user['baucua_count'] / $mission['target_count']) * 100);
+                ?>
+                <div class="bg-purple-600 h-2.5 rounded-full transition-all duration-500"
+                    style="width: <?= $progress ?>%"></div>
+            </div>
+            <div class="flex justify-between text-[10px] font-bold text-slate-400">
+                <span>TIẾN ĐỘ: <?= $user['baucua_count'] ?>/<?= $mission['target_count'] ?> ván</span>
+                <span><?= round($progress) ?>%</span>
+            </div>
+        </div>
+
         <div class="grid grid-cols-1 md:grid-cols-2 gap-4 sm:gap-6 mb-8 sm:mb-10">
             <div
                 class="bg-gradient-to-br from-blue-500 to-blue-700 p-5 sm:p-6 rounded-2xl shadow-lg text-white relative overflow-hidden">
@@ -107,6 +163,37 @@ $user = $stmt->fetch();
 
             <div id="resultMsg"
                 class="mt-4 sm:mt-6 min-h-[32px] sm:min-h-[40px] text-lg sm:text-xl font-bold transition-all duration-300 flex items-center justify-center">
+            </div>
+        </div>
+
+        <div class="bg-white mt-8 rounded-2xl shadow-sm border border-slate-200 overflow-hidden">
+            <div class="px-5 py-4 border-b border-slate-100 bg-slate-50">
+                <h3 class="text-sm font-bold text-slate-700 uppercase">📜 Lịch sử trúng thưởng của bạn</h3>
+            </div>
+            <div class="overflow-x-auto">
+                <table class="w-full text-left text-sm text-slate-600">
+                    <thead class="bg-slate-50 text-slate-500 text-[10px] uppercase">
+                        <tr>
+                            <th class="px-5 py-3">Thời gian</th>
+                            <th class="px-5 py-3 text-right">Số tiền nhận</th>
+                        </tr>
+                    </thead>
+                    <tbody class="divide-y divide-slate-100">
+                        <?php foreach ($myHistories as $h): ?>
+                            <tr class="hover:bg-slate-50 transition">
+                                <td class="px-5 py-3 text-xs"><?= date('H:i d/m/Y', strtotime($h['created_at'])) ?></td>
+                                <td class="px-5 py-3 text-right font-bold text-green-600">
+                                    +<?= number_format($h['reward']) ?>đ</td>
+                            </tr>
+                        <?php endforeach; ?>
+                        <?php if (count($myHistories) == 0): ?>
+                            <tr>
+                                <td colspan="2" class="px-5 py-8 text-center text-slate-400">Bạn chưa thực hiện lượt quay
+                                    nào.</td>
+                            </tr>
+                        <?php endif; ?>
+                    </tbody>
+                </table>
             </div>
         </div>
 
@@ -217,6 +304,13 @@ $user = $stmt->fetch();
     </main>
 
     <script>
+        // MỚI: Âm thanh hệ thống
+        const sounds = {
+            spin: new Audio('https://www.soundjay.com/misc/sounds/mechanical-clonk-1.mp3'),
+            win: new Audio('https://www.soundjay.com/misc/sounds/bell-ringing-05.mp3'),
+            error: new Audio('https://www.soundjay.com/buttons/button-10.mp3')
+        };
+
         document.getElementById('spinBtn').addEventListener('click', async function() {
             const btn = this;
             const msg = document.getElementById('resultMsg');
@@ -225,7 +319,11 @@ $user = $stmt->fetch();
             btn.disabled = true;
             msg.innerText = "";
             numberDisplay.classList.remove('text-green-400', 'scale-110');
-            numberDisplay.classList.add('text-yellow-400');
+            numberDisplay.classList.add('text-yellow-400', 'animate-pulse-custom');
+
+            // Phát âm thanh khi quay
+            sounds.spin.play();
+            sounds.spin.loop = true;
 
             let spinInterval = setInterval(() => {
                 const randomVisualNum = Math.floor(Math.random() * 100) * 1000 + 1000;
@@ -238,8 +336,11 @@ $user = $stmt->fetch();
 
                 setTimeout(() => {
                     clearInterval(spinInterval);
+                    sounds.spin.loop = false;
+                    sounds.spin.pause();
 
                     if (data.success) {
+                        sounds.win.play(); // Âm thanh trúng
                         numberDisplay.innerText = data.reward.toLocaleString() + " VNĐ";
                         numberDisplay.classList.remove('text-yellow-400');
                         numberDisplay.classList.add('text-green-400', 'scale-110');
@@ -254,16 +355,19 @@ $user = $stmt->fetch();
 
                         if (data.spins_left > 0) btn.disabled = false;
                     } else {
+                        sounds.error.play(); // Âm thanh lỗi/hết lượt
                         numberDisplay.classList.remove('text-yellow-400');
                         numberDisplay.innerText = "0 VNĐ";
                         msg.innerText = "❌ " + data.error;
                         msg.className =
                             "mt-4 sm:mt-6 min-h-[32px] sm:min-h-[40px] text-lg font-bold text-red-500 flex items-center justify-center";
                     }
+                    numberDisplay.classList.remove('animate-pulse-custom');
                 }, 1500);
 
             } catch (err) {
                 clearInterval(spinInterval);
+                sounds.spin.pause();
                 numberDisplay.innerText = "LỖI";
                 msg.innerText = "Có lỗi xảy ra, thử lại sau.";
                 msg.className =
@@ -272,35 +376,28 @@ $user = $stmt->fetch();
             }
         });
 
-        // Tính năng Rút Tiền
+        // Giữ nguyên các hàm JS cũ của bạn bên dưới
         async function requestWithdraw() {
             const amount = document.getElementById('withdrawAmount').value;
             if (!amount || amount < 10000) return alert("Vui lòng nhập số tiền hợp lệ (Tối thiểu 10k)!");
-
             if (!confirm(`Bạn chắc chắn muốn rút ${Number(amount).toLocaleString()} VNĐ?`)) return;
-
             const formData = new FormData();
             formData.append('action', 'withdraw');
             formData.append('amount', amount);
-
             await sendAction(formData);
-            setTimeout(() => location.reload(), 1500); // Reload cập nhật bảng
+            setTimeout(() => location.reload(), 1500);
         }
 
-        // Tính năng Mua đồ trong Shop
         async function buyAction(actionName, itemId = null, giftName = '', cost = 0) {
             let msg = actionName === 'buy_spin' ? "Mua 1 lượt quay với giá 50.000 VNĐ?" :
                 `Đổi ${giftName} với giá ${Number(cost).toLocaleString()} VNĐ?`;
             if (!confirm(msg)) return;
-
             const formData = new FormData();
             formData.append('action', actionName);
             if (itemId) formData.append('item_id', itemId);
-
             await sendAction(formData);
         }
 
-        // Hàm gọi API dùng chung
         async function sendAction(formData) {
             try {
                 const res = await fetch('user_actions.php', {
@@ -308,7 +405,6 @@ $user = $stmt->fetch();
                     body: formData
                 });
                 const data = await res.json();
-
                 if (data.success) {
                     alert("🎉 " + data.message);
                     document.getElementById('balance').innerText = data.new_balance.toLocaleString();

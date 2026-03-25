@@ -136,6 +136,19 @@ if (isset($_POST['handle_gift'])) {
     header("Location: admin.php");
     exit;
 }
+
+// Xử lý cập nhật nhiệm vụ
+if (isset($_POST['update_mission'])) {
+    $target = (int)$_POST['target_count'];
+    $reward = (int)$_POST['reward_spins'];
+    $pdo->prepare("UPDATE mission_settings SET target_count = ?, reward_spins = ? WHERE id = 1")->execute([$target, $reward]);
+    $_SESSION['msg'] = "✅ Đã cập nhật cấu hình nhiệm vụ!";
+    header("Location: admin.php");
+    exit;
+}
+
+// Lấy cấu hình nhiệm vụ hiện tại
+$mission = $pdo->query("SELECT * FROM mission_settings WHERE id = 1")->fetch();
 ?>
 
 <!DOCTYPE html>
@@ -186,6 +199,28 @@ if (isset($_POST['handle_gift'])) {
                         <button type="submit" name="update_settings"
                             class="w-full bg-blue-600 hover:bg-blue-700 text-white font-medium py-2.5 rounded-lg transition shadow-md">Lưu
                             Cài Đặt</button>
+                    </form>
+                </div>
+
+                <div class="bg-white p-6 rounded-2xl shadow-sm border border-slate-200 mt-6">
+                    <h2 class="text-lg font-bold text-slate-800 mb-4 border-b pb-2">🎯 Quản lý Nhiệm vụ</h2>
+                    <form method="POST" class="space-y-4">
+                        <div class="grid grid-cols-2 gap-4">
+                            <div>
+                                <label class="block text-sm font-medium text-slate-600 mb-1">Số ván Bầu Cua yêu
+                                    cầu</label>
+                                <input type="number" name="target_count" value="<?= $mission['target_count'] ?>"
+                                    class="w-full px-4 py-2 border rounded-lg outline-none bg-slate-50">
+                            </div>
+                            <div>
+                                <label class="block text-sm font-medium text-slate-600 mb-1">Thưởng lượt quay</label>
+                                <input type="number" name="reward_spins" value="<?= $mission['reward_spins'] ?>"
+                                    class="w-full px-4 py-2 border rounded-lg outline-none bg-slate-50">
+                            </div>
+                        </div>
+                        <button type="submit" name="update_mission"
+                            class="w-full bg-purple-600 hover:bg-purple-700 text-white font-medium py-2.5 rounded-lg transition shadow-md">Cập
+                            nhật Nhiệm vụ</button>
                     </form>
                 </div>
 
