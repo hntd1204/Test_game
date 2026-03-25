@@ -103,7 +103,7 @@ $animals = [
         </div>
     </nav>
 
-    <main class="max-w-4xl mx-auto mt-6 px-4 pb-20">
+    <main class="max-w-4xl mx-auto mt-6 px-4 pb-32">
 
         <div
             class="bg-slate-800 border border-slate-700 p-6 rounded-3xl shadow-2xl text-center mb-6 relative overflow-hidden">
@@ -135,16 +135,16 @@ $animals = [
                 </button>
             </div>
 
-            <div class="grid grid-cols-3 gap-3 sm:gap-4 mb-2">
+            <div class="grid grid-cols-3 gap-2 sm:gap-4 mb-2">
                 <?php foreach ($animals as $key => $animal): ?>
                     <div id="box-<?= $key ?>" onclick="placeBet('<?= $key ?>')"
-                        class="animal-box relative <?= $animal['color'] ?> border-2 <?= $animal['border'] ?> rounded-2xl p-3 sm:p-5 flex flex-col items-center cursor-pointer hover:bg-slate-700/50 transition-all active:scale-95 overflow-hidden group">
+                        class="animal-box relative <?= $animal['color'] ?> border-2 <?= $animal['border'] ?> rounded-xl sm:rounded-2xl p-2 sm:p-5 flex flex-col items-center cursor-pointer hover:bg-slate-700/50 transition-all active:scale-95 overflow-hidden group">
                         <span
-                            class="text-4xl sm:text-5xl mb-1 sm:mb-2 group-hover:scale-110 transition-transform"><?= $animal['icon'] ?></span>
-                        <span class="font-bold text-slate-300 text-sm sm:text-base"><?= $animal['name'] ?></span>
+                            class="text-3xl sm:text-5xl mb-1 sm:mb-2 group-hover:scale-110 transition-transform"><?= $animal['icon'] ?></span>
+                        <span class="font-bold text-slate-300 text-xs sm:text-base"><?= $animal['name'] ?></span>
 
                         <div id="bet-badge-<?= $key ?>"
-                            class="hidden absolute top-2 right-2 bg-amber-500 text-slate-900 text-[10px] sm:text-xs font-bold px-2 py-0.5 rounded-full shadow-lg">
+                            class="hidden absolute top-1 right-1 sm:top-2 sm:right-2 bg-amber-500 text-slate-900 text-[9px] sm:text-xs font-bold px-1.5 py-0.5 rounded-full shadow-lg">
                             0
                         </div>
                     </div>
@@ -177,9 +177,9 @@ $animals = [
         </div>
 
         <div
-            class="fixed bottom-0 left-0 right-0 p-4 bg-slate-900/90 backdrop-blur-md border-t border-slate-800 z-40 sm:static sm:bg-transparent sm:border-0 sm:p-0">
+            class="fixed bottom-0 left-0 right-0 p-4 pb-[max(1rem,env(safe-area-inset-bottom))] bg-slate-900/95 backdrop-blur-md border-t border-slate-800 z-40 sm:static sm:bg-transparent sm:border-0 sm:p-0">
             <button id="rollBtn"
-                class="w-full sm:w-auto sm:mx-auto sm:block bg-gradient-to-r from-amber-500 to-orange-600 hover:from-amber-400 hover:to-orange-500 text-slate-900 text-xl font-black py-4 px-16 rounded-2xl shadow-[0_0_20px_rgba(245,158,11,0.4)] transform transition active:scale-95 uppercase tracking-widest border border-amber-300/50">
+                class="w-full sm:w-auto sm:mx-auto sm:block bg-gradient-to-r from-amber-500 to-orange-600 hover:from-amber-400 hover:to-orange-500 text-slate-900 text-lg sm:text-xl font-black py-3 sm:py-4 px-16 rounded-xl sm:rounded-2xl shadow-[0_0_20px_rgba(245,158,11,0.4)] transform transition active:scale-95 uppercase tracking-widest border border-amber-300/50">
                 🎲 XÓC NGAY 🎲
             </button>
         </div>

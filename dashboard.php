@@ -74,6 +74,19 @@ $user = $stmt->fetch();
         </div>
 
         <div
+            class="bg-gradient-to-r from-emerald-600 to-teal-600 p-6 rounded-2xl shadow-lg text-white mb-8 flex flex-col sm:flex-row justify-between items-center transform transition hover:scale-[1.02]">
+            <div>
+                <h3 class="text-xl font-bold mb-2">🃏 Mini Game: Xì Dách</h3>
+                <p class="text-sm text-emerald-100">Đấu trí với nhà cái, đạt Xì Dách hoặc Ngũ Linh để nhận thưởng gấp
+                    đôi!</p>
+            </div>
+            <a href="blackjack.php"
+                class="mt-4 sm:mt-0 bg-white text-emerald-700 font-bold px-6 py-3 rounded-full shadow-md hover:bg-slate-100 whitespace-nowrap">
+                Chơi Ngay
+            </a>
+        </div>
+
+        <div
             class="bg-white p-5 sm:p-8 md:p-10 rounded-3xl shadow-xl border border-slate-100 text-center max-w-2xl mx-auto">
             <h2 class="text-xl sm:text-2xl font-bold text-slate-800 mb-6 sm:mb-8">Trải Nghiệm Vận May</h2>
 

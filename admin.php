@@ -472,12 +472,18 @@ if (isset($_POST['handle_gift'])) {
         </div>
 
         <?php
-        // Lấy thống kê
+        // Lấy thống kê Bầu Cua
         $bc_stats = $pdo->query("SELECT SUM(total_bet) as sum_bet, SUM(total_win) as sum_win FROM baucua_history")->fetch();
         $nhacai_profit = ($bc_stats['sum_bet'] ?? 0) - ($bc_stats['sum_win'] ?? 0);
         $bc_histories = $pdo->query("SELECT b.*, u.username FROM baucua_history b JOIN users u ON b.user_id = u.id ORDER BY b.id DESC LIMIT 50")->fetchAll();
         $bc_icons = ['nai' => '🦌', 'bau' => '🎃', 'ga' => '🐓', 'ca' => '🐟', 'cua' => '🦀', 'tom' => '🦐'];
+
+        // --- THỐNG KÊ XÌ DÁCH ---
+        $bj_stats = $pdo->query("SELECT SUM(bet) as sum_bet, SUM(win) as sum_win FROM blackjack_history")->fetch();
+        $bj_nhacai_profit = ($bj_stats['sum_bet'] ?? 0) - ($bj_stats['sum_win'] ?? 0);
+        $bj_histories = $pdo->query("SELECT b.*, u.username FROM blackjack_history b JOIN users u ON b.user_id = u.id ORDER BY b.id DESC LIMIT 50")->fetchAll();
         ?>
+
         <div class="mt-8 bg-white rounded-2xl shadow-sm border border-slate-200 lg:col-span-2">
             <div class="p-6 border-b border-slate-200 flex flex-col sm:flex-row justify-between items-center gap-4">
                 <div>
@@ -531,7 +537,53 @@ if (isset($_POST['handle_gift'])) {
                 </table>
             </div>
         </div>
-        ```
+
+        <div class="mt-8 bg-white rounded-2xl shadow-sm border border-slate-200 lg:col-span-2">
+            <div class="p-6 border-b border-slate-200 flex flex-col sm:flex-row justify-between items-center gap-4">
+                <div>
+                    <h2 class="text-lg font-bold text-slate-800">🃏 Thống Kê Xì Dách</h2>
+                    <p class="text-sm text-slate-500">Giám sát dòng tiền cược của người chơi</p>
+                </div>
+                <div class="flex gap-4">
+                    <div class="bg-slate-50 border border-slate-200 px-4 py-2 rounded-xl text-center">
+                        <p class="text-xs text-slate-500 font-bold mb-1">NHÀ CÁI LÃI</p>
+                        <p class="text-lg font-bold <?= $bj_nhacai_profit >= 0 ? 'text-green-600' : 'text-red-500' ?>">
+                            <?= $bj_nhacai_profit >= 0 ? '+' : '' ?><?= number_format($bj_nhacai_profit) ?>đ
+                        </p>
+                    </div>
+                </div>
+            </div>
+
+            <div class="overflow-x-auto max-h-[400px]">
+                <table class="w-full text-left text-sm text-slate-600 whitespace-nowrap">
+                    <thead class="bg-slate-100 text-slate-700 sticky top-0">
+                        <tr>
+                            <th class="px-4 py-3">Thời gian</th>
+                            <th class="px-4 py-3">Người chơi</th>
+                            <th class="px-4 py-3 text-right">Tiền Cược</th>
+                            <th class="px-4 py-3 text-right">Tiền Thắng</th>
+                            <th class="px-4 py-3 text-right">Lãi/Lỗ User</th>
+                        </tr>
+                    </thead>
+                    <tbody class="divide-y divide-slate-100">
+                        <?php foreach ($bj_histories as $bj): ?>
+                            <tr class="hover:bg-slate-50">
+                                <td class="px-4 py-3 text-xs"><?= date('H:i d/m', strtotime($bj['created_at'])) ?></td>
+                                <td class="px-4 py-3 font-bold text-blue-600"><?= htmlspecialchars($bj['username']) ?></td>
+                                <td class="px-4 py-3 text-right font-medium"><?= number_format($bj['bet']) ?>đ</td>
+                                <td class="px-4 py-3 text-right font-medium text-amber-500">
+                                    <?= number_format($bj['win']) ?>đ</td>
+                                <td
+                                    class="px-4 py-3 text-right font-bold <?= $bj['net_profit'] > 0 ? 'text-green-500' : ($bj['net_profit'] < 0 ? 'text-red-500' : 'text-slate-500') ?>">
+                                    <?= $bj['net_profit'] > 0 ? '+' : '' ?><?= number_format($bj['net_profit']) ?>đ
+                                </td>
+                            </tr>
+                        <?php endforeach; ?>
+                        <?php if (count($bj_histories) == 0) echo '<tr><td colspan="5" class="text-center py-4 text-slate-400">Chưa có dữ liệu</td></tr>'; ?>
+                    </tbody>
+                </table>
+            </div>
+        </div>
     </main>
 
     <script>
