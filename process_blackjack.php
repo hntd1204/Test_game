@@ -81,13 +81,24 @@ function handleBlackjackMission($pdo, $userId)
 
     $mission_info = ['rewarded' => false];
     foreach ($missions as $m) {
-        if ($currentCount >= $m['target_count']) {
-            $pdo->prepare("UPDATE users SET spins_available = spins_available + ?, blackjack_count = 0 WHERE id = ?")
+        if ($currentCount == $m['target_count']) {
+            $pdo->prepare("UPDATE users SET spins_available = spins_available + ? WHERE id = ?")
                 ->execute([$m['reward_spins'], $userId]);
-            $mission_info = ['rewarded' => true];
+
+            $mission_info = [
+                'rewarded' => true,
+                'current' => $currentCount,
+                'target' => $m['target_count']
+            ];
             break;
         }
     }
+
+    if (!$mission_info['rewarded'] && count($missions) > 0) {
+        $mission_info['current'] = $currentCount;
+        $mission_info['target'] = $missions[0]['target_count'];
+    }
+
     return $mission_info;
 }
 

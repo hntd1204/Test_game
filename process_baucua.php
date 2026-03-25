@@ -93,9 +93,8 @@ try {
     $missions = $pdo->query("SELECT * FROM mission_settings WHERE mission_key = 'baucua_count'")->fetchAll();
 
     foreach ($missions as $m) {
-        if ($currentCount >= $m['target_count']) {
-            // Đạt mục tiêu -> Thưởng lượt quay và Reset biến đếm
-            $pdo->prepare("UPDATE users SET spins_available = spins_available + ?, baucua_count = 0 WHERE id = ?")
+        if ($currentCount == $m['target_count']) {
+            $pdo->prepare("UPDATE users SET spins_available = spins_available + ? WHERE id = ?")
                 ->execute([$m['reward_spins'], $userId]);
 
             $mission_info = [
@@ -103,10 +102,11 @@ try {
                 'current' => $currentCount,
                 'target' => $m['target_count']
             ];
-            break; // Thưởng 1 nhiệm vụ 1 lúc
+            break;
         }
     }
-    // Lấy lại tiến độ để hiện UI nếu không được thưởng
+
+    // Lấy lại tiến độ để hiện UI
     if (!$mission_info['rewarded'] && count($missions) > 0) {
         $mission_info['current'] = $currentCount;
         $mission_info['target'] = $missions[0]['target_count'];

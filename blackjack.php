@@ -22,6 +22,11 @@ try {
 } catch (Exception $e) {
     $mission = ['target_count' => 5, 'reward_spins' => 1];
 }
+
+// LẤY LỊCH SỬ CHƠI XÌ DÁCH CỦA USER
+$historyStmt = $pdo->prepare("SELECT * FROM blackjack_history WHERE user_id = ? ORDER BY id DESC LIMIT 10");
+$historyStmt->execute([$_SESSION['user_id']]);
+$myHistories = $historyStmt->fetchAll();
 ?>
 <!DOCTYPE html>
 <html lang="vi">
@@ -92,7 +97,7 @@ try {
             <?php endforeach; ?>
         </div>
 
-        <div class="flex justify-center gap-4">
+        <div class="flex justify-center gap-4 mb-8">
             <button id="dealBtn" onclick="dealCards()"
                 class="w-full sm:w-64 bg-amber-500 text-slate-900 text-lg font-black py-4 rounded-xl shadow-lg uppercase">Chia
                 Bài</button>
@@ -100,6 +105,46 @@ try {
                 class="hidden flex-1 bg-blue-600 text-white font-black py-4 rounded-xl uppercase">Rút</button>
             <button id="standBtn" onclick="action('stand')"
                 class="hidden flex-1 bg-rose-600 text-white font-black py-4 rounded-xl uppercase">Dừng</button>
+        </div>
+
+        <div class="bg-emerald-800 border-4 border-emerald-700 p-4 sm:p-6 rounded-3xl shadow-xl">
+            <h3 class="text-lg font-bold text-amber-400 mb-4 border-b border-emerald-600 pb-2">📜 Lịch Sử Chơi Gần Đây
+            </h3>
+            <div class="overflow-x-auto">
+                <table class="w-full text-left text-sm text-emerald-100 whitespace-nowrap">
+                    <thead class="bg-emerald-900/50 text-emerald-300">
+                        <tr>
+                            <th class="px-3 py-2 rounded-tl-lg">Thời gian</th>
+                            <th class="px-3 py-2 text-right">Cược</th>
+                            <th class="px-3 py-2 text-right">Thắng</th>
+                            <th class="px-3 py-2 text-right rounded-tr-lg">Lãi/Lỗ</th>
+                        </tr>
+                    </thead>
+                    <tbody class="divide-y divide-emerald-700/50">
+                        <?php foreach ($myHistories as $h): ?>
+                            <tr class="hover:bg-emerald-700/30 transition">
+                                <td class="px-3 py-3 text-xs text-emerald-200">
+                                    <?= date('H:i d/m', strtotime($h['created_at'])) ?></td>
+                                <td class="px-3 py-3 text-right font-medium"><?= number_format($h['bet']) ?>đ</td>
+                                <td class="px-3 py-3 text-right font-bold text-amber-300"><?= number_format($h['win']) ?>đ
+                                </td>
+                                <td
+                                    class="px-3 py-3 text-right font-bold <?= $h['net_profit'] > 0 ? 'text-green-400' : ($h['net_profit'] < 0 ? 'text-rose-400' : 'text-slate-300') ?>">
+                                    <?= $h['net_profit'] > 0 ? '+' : '' ?><?= number_format($h['net_profit']) ?>đ
+                                </td>
+                            </tr>
+                        <?php endforeach; ?>
+                        <?php if (count($myHistories) == 0): ?>
+                            <tr>
+                                <td colspan="4" class="text-center py-6 text-emerald-400/50">Bạn chưa tham gia ván Xì Dách
+                                    nào.</td>
+                            </tr>
+                        <?php endif; ?>
+                    </tbody>
+                </table>
+            </div>
+            <p class="text-xs text-emerald-400/70 text-center mt-3 italic">* Tải lại trang (F5) để cập nhật lịch sử mới
+                nhất.</p>
         </div>
     </main>
 
@@ -204,14 +249,15 @@ try {
             if (data.net_profit > 0) sounds.win.play();
             else if (data.net_profit < 0) sounds.lose.play();
 
-            // Cập nhật tiến độ nhiệm vụ từ server (Giống như bên Bầu Cua)
+            // Cập nhật tiến độ nhiệm vụ từ server
             if (data.mission) {
                 const progressSpan = document.getElementById('missionProgress');
+                if (data.mission.current !== undefined) {
+                    progressSpan.innerText = `${data.mission.current}/${data.mission.target}`;
+                }
+
                 if (data.mission.rewarded) {
                     alert("🎁 Chúc mừng! Bạn đã hoàn thành nhiệm vụ Xì Dách và nhận được lượt quay miễn phí!");
-                    progressSpan.innerText = `0/${data.mission.target}`;
-                } else if (data.mission.current !== undefined) {
-                    progressSpan.innerText = `${data.mission.current}/${data.mission.target}`;
                 }
             }
 

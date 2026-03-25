@@ -14,6 +14,11 @@ $user = $stmt->fetch();
 // Lấy cấu hình nhiệm vụ từ Admin
 $mission = $pdo->query("SELECT target_count, reward_spins FROM mission_settings WHERE id = 1")->fetch();
 
+// LẤY LỊCH SỬ CHƠI BẦU CUA CỦA USER
+$historyStmt = $pdo->prepare("SELECT * FROM baucua_history WHERE user_id = ? ORDER BY id DESC LIMIT 10");
+$historyStmt->execute([$_SESSION['user_id']]);
+$myHistories = $historyStmt->fetchAll();
+
 $animals = [
     'nai' => ['name' => 'Nai', 'icon' => '🦌', 'color' => 'bg-amber-700/20', 'border' => 'border-amber-500/50'],
     'bau' => ['name' => 'Bầu', 'icon' => '🎃', 'color' => 'bg-orange-500/20', 'border' => 'border-orange-500/50'],
@@ -116,11 +121,58 @@ $animals = [
             <?php endforeach; ?>
         </div>
 
-        <div class="flex overflow-x-auto gap-3 pb-4 justify-center">
+        <div class="flex overflow-x-auto gap-3 pb-4 justify-center mb-4">
             <?php foreach ([5000, 10000, 20000, 50000, 100000] as $val): ?>
                 <button onclick="selectChip(<?= $val ?>, this)"
                     class="chip-btn shrink-0 w-14 h-14 rounded-full border-4 border-slate-600 bg-slate-800 text-slate-300 font-bold text-xs <?= $val == 10000 ? 'border-amber-400 bg-amber-500/20 text-amber-400' : '' ?>"><?= $val / 1000 ?>K</button>
             <?php endforeach; ?>
+        </div>
+
+        <div class="bg-slate-800 border border-slate-700 p-4 sm:p-6 rounded-3xl shadow-xl mt-4">
+            <h3 class="text-lg font-bold text-amber-400 mb-4 border-b border-slate-700 pb-2">📜 Lịch Sử Chơi Gần Đây
+            </h3>
+            <div class="overflow-x-auto">
+                <table class="w-full text-left text-sm text-slate-300 whitespace-nowrap">
+                    <thead class="bg-slate-700/50 text-slate-400">
+                        <tr>
+                            <th class="px-3 py-2 rounded-tl-lg">Thời gian</th>
+                            <th class="px-3 py-2">Chi tiết cược</th>
+                            <th class="px-3 py-2">Xí ngầu</th>
+                            <th class="px-3 py-2 text-right rounded-tr-lg">Lãi/Lỗ</th>
+                        </tr>
+                    </thead>
+                    <tbody class="divide-y divide-slate-700/50">
+                        <?php foreach ($myHistories as $h):
+                            $h_bets = json_decode($h['bet_details'], true);
+                            $bet_str = [];
+                            foreach ($h_bets as $ani => $amt) {
+                                $bet_str[] = $animals[$ani]['icon'] . " " . ($amt / 1000) . "K";
+                            }
+                            $dice = explode(',', $h['dice_result']);
+                            $dice_str = $animals[$dice[0]]['icon'] . " " . $animals[$dice[1]]['icon'] . " " . $animals[$dice[2]]['icon'];
+                        ?>
+                            <tr class="hover:bg-slate-700/30 transition">
+                                <td class="px-3 py-3 text-xs text-slate-400">
+                                    <?= date('H:i d/m', strtotime($h['created_at'])) ?></td>
+                                <td class="px-3 py-3 text-xs"><?= implode(', ', $bet_str) ?></td>
+                                <td class="px-3 py-3 text-base"><?= $dice_str ?></td>
+                                <td
+                                    class="px-3 py-3 text-right font-bold <?= $h['net_profit'] > 0 ? 'text-green-400' : ($h['net_profit'] < 0 ? 'text-rose-400' : 'text-slate-400') ?>">
+                                    <?= $h['net_profit'] > 0 ? '+' : '' ?><?= number_format($h['net_profit']) ?>đ
+                                </td>
+                            </tr>
+                        <?php endforeach; ?>
+                        <?php if (count($myHistories) == 0): ?>
+                            <tr>
+                                <td colspan="4" class="text-center py-6 text-slate-500">Bạn chưa tham gia ván Bầu Cua nào.
+                                </td>
+                            </tr>
+                        <?php endif; ?>
+                    </tbody>
+                </table>
+            </div>
+            <p class="text-xs text-slate-500 text-center mt-3 italic">* Tải lại trang (F5) để cập nhật lịch sử mới nhất.
+            </p>
         </div>
 
         <div class="fixed bottom-0 left-0 right-0 p-4 bg-slate-900/95 border-t border-slate-800">
