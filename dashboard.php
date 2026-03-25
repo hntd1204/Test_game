@@ -20,9 +20,9 @@ $user = $stmt->fetch();
     <title>Dashboard - Vòng Quay May Mắn</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <style>
-    .number-display {
-        font-variant-numeric: tabular-nums;
-    }
+        .number-display {
+            font-variant-numeric: tabular-nums;
+        }
     </style>
 </head>
 
@@ -146,14 +146,14 @@ $user = $stmt->fetch();
                         $shopStmt = $pdo->query("SELECT * FROM shop_items WHERE is_active = 1 ORDER BY cost ASC");
                         while ($item = $shopStmt->fetch()):
                     ?>
-                    <button
-                        onclick="buyAction('buy_gift', <?= $item['id'] ?>, '<?= htmlspecialchars($item['name']) ?>', <?= $item['cost'] ?>)"
-                        class="w-full flex justify-between items-center bg-green-50 hover:bg-green-100 p-3 rounded-xl border border-green-200 transition-all active:scale-95">
-                        <span class="font-bold text-green-700"><?= htmlspecialchars($item['name']) ?></span>
-                        <span
-                            class="bg-green-500 text-white text-xs font-bold px-3 py-1 rounded-full"><?= number_format($item['cost']) ?>
-                            VNĐ</span>
-                    </button>
+                            <button
+                                onclick="buyAction('buy_gift', <?= $item['id'] ?>, '<?= htmlspecialchars($item['name']) ?>', <?= $item['cost'] ?>)"
+                                class="w-full flex justify-between items-center bg-green-50 hover:bg-green-100 p-3 rounded-xl border border-green-200 transition-all active:scale-95">
+                                <span class="font-bold text-green-700"><?= htmlspecialchars($item['name']) ?></span>
+                                <span
+                                    class="bg-green-500 text-white text-xs font-bold px-3 py-1 rounded-full"><?= number_format($item['cost']) ?>
+                                    VNĐ</span>
+                            </button>
                     <?php
                         endwhile;
                     } catch (Exception $e) {
@@ -191,113 +191,113 @@ $user = $stmt->fetch();
     </main>
 
     <script>
-    document.getElementById('spinBtn').addEventListener('click', async function() {
-        const btn = this;
-        const msg = document.getElementById('resultMsg');
-        const numberDisplay = document.getElementById('spinningNumber');
+        document.getElementById('spinBtn').addEventListener('click', async function() {
+            const btn = this;
+            const msg = document.getElementById('resultMsg');
+            const numberDisplay = document.getElementById('spinningNumber');
 
-        btn.disabled = true;
-        msg.innerText = "";
-        numberDisplay.classList.remove('text-green-400', 'scale-110');
-        numberDisplay.classList.add('text-yellow-400');
+            btn.disabled = true;
+            msg.innerText = "";
+            numberDisplay.classList.remove('text-green-400', 'scale-110');
+            numberDisplay.classList.add('text-yellow-400');
 
-        let spinInterval = setInterval(() => {
-            const randomVisualNum = Math.floor(Math.random() * 100) * 1000 + 1000;
-            numberDisplay.innerText = randomVisualNum.toLocaleString() + " VNĐ";
-        }, 50);
+            let spinInterval = setInterval(() => {
+                const randomVisualNum = Math.floor(Math.random() * 100) * 1000 + 1000;
+                numberDisplay.innerText = randomVisualNum.toLocaleString() + " VNĐ";
+            }, 50);
 
-        try {
-            const response = await fetch('process_spin.php');
-            const data = await response.json();
+            try {
+                const response = await fetch('process_spin.php');
+                const data = await response.json();
 
-            setTimeout(() => {
+                setTimeout(() => {
+                    clearInterval(spinInterval);
+
+                    if (data.success) {
+                        numberDisplay.innerText = data.reward.toLocaleString() + " VNĐ";
+                        numberDisplay.classList.remove('text-yellow-400');
+                        numberDisplay.classList.add('text-green-400', 'scale-110');
+
+                        msg.innerText = "🎉 Bạn trúng " + data.reward.toLocaleString() + " đ";
+                        msg.className =
+                            "mt-4 sm:mt-6 min-h-[32px] sm:min-h-[40px] text-lg md:text-2xl font-extrabold text-transparent bg-clip-text bg-gradient-to-r from-green-500 to-emerald-700 animate-bounce flex items-center justify-center";
+
+                        document.getElementById('balance').innerText = data.new_balance
+                            .toLocaleString();
+                        document.getElementById('spins').innerText = data.spins_left;
+
+                        if (data.spins_left > 0) btn.disabled = false;
+                    } else {
+                        numberDisplay.classList.remove('text-yellow-400');
+                        numberDisplay.innerText = "0 VNĐ";
+                        msg.innerText = "❌ " + data.error;
+                        msg.className =
+                            "mt-4 sm:mt-6 min-h-[32px] sm:min-h-[40px] text-lg font-bold text-red-500 flex items-center justify-center";
+                    }
+                }, 1500);
+
+            } catch (err) {
                 clearInterval(spinInterval);
+                numberDisplay.innerText = "LỖI";
+                msg.innerText = "Có lỗi xảy ra, thử lại sau.";
+                msg.className =
+                    "mt-4 sm:mt-6 min-h-[32px] sm:min-h-[40px] text-lg font-bold text-red-500 flex items-center justify-center";
+                btn.disabled = false;
+            }
+        });
+
+        // Tính năng Rút Tiền
+        async function requestWithdraw() {
+            const amount = document.getElementById('withdrawAmount').value;
+            if (!amount || amount < 10000) return alert("Vui lòng nhập số tiền hợp lệ (Tối thiểu 10k)!");
+
+            if (!confirm(`Bạn chắc chắn muốn rút ${Number(amount).toLocaleString()} VNĐ?`)) return;
+
+            const formData = new FormData();
+            formData.append('action', 'withdraw');
+            formData.append('amount', amount);
+
+            await sendAction(formData);
+            setTimeout(() => location.reload(), 1500); // Reload cập nhật bảng
+        }
+
+        // Tính năng Mua đồ trong Shop
+        async function buyAction(actionName, itemId = null, giftName = '', cost = 0) {
+            let msg = actionName === 'buy_spin' ? "Mua 1 lượt quay với giá 50.000 VNĐ?" :
+                `Đổi ${giftName} với giá ${Number(cost).toLocaleString()} VNĐ?`;
+            if (!confirm(msg)) return;
+
+            const formData = new FormData();
+            formData.append('action', actionName);
+            if (itemId) formData.append('item_id', itemId);
+
+            await sendAction(formData);
+        }
+
+        // Hàm gọi API dùng chung
+        async function sendAction(formData) {
+            try {
+                const res = await fetch('user_actions.php', {
+                    method: 'POST',
+                    body: formData
+                });
+                const data = await res.json();
 
                 if (data.success) {
-                    numberDisplay.innerText = data.reward.toLocaleString() + " VNĐ";
-                    numberDisplay.classList.remove('text-yellow-400');
-                    numberDisplay.classList.add('text-green-400', 'scale-110');
-
-                    msg.innerText = "🎉 Bạn trúng " + data.reward.toLocaleString() + " đ";
-                    msg.className =
-                        "mt-4 sm:mt-6 min-h-[32px] sm:min-h-[40px] text-lg md:text-2xl font-extrabold text-transparent bg-clip-text bg-gradient-to-r from-green-500 to-emerald-700 animate-bounce flex items-center justify-center";
-
-                    document.getElementById('balance').innerText = data.new_balance
-                        .toLocaleString();
-                    document.getElementById('spins').innerText = data.spins_left;
-
-                    if (data.spins_left > 0) btn.disabled = false;
+                    alert("🎉 " + data.message);
+                    document.getElementById('balance').innerText = data.new_balance.toLocaleString();
+                    if (data.spins_left !== undefined) {
+                        document.getElementById('spins').innerText = data.spins_left;
+                        if (data.spins_left > 0) document.getElementById('spinBtn').disabled = false;
+                    }
                 } else {
-                    numberDisplay.classList.remove('text-yellow-400');
-                    numberDisplay.innerText = "0 VNĐ";
-                    msg.innerText = "❌ " + data.error;
-                    msg.className =
-                        "mt-4 sm:mt-6 min-h-[32px] sm:min-h-[40px] text-lg font-bold text-red-500 flex items-center justify-center";
+                    alert("❌ " + data.error);
                 }
-            }, 1500);
-
-        } catch (err) {
-            clearInterval(spinInterval);
-            numberDisplay.innerText = "LỖI";
-            msg.innerText = "Có lỗi xảy ra, thử lại sau.";
-            msg.className =
-                "mt-4 sm:mt-6 min-h-[32px] sm:min-h-[40px] text-lg font-bold text-red-500 flex items-center justify-center";
-            btn.disabled = false;
-        }
-    });
-
-    // Tính năng Rút Tiền
-    async function requestWithdraw() {
-        const amount = document.getElementById('withdrawAmount').value;
-        if (!amount || amount < 10000) return alert("Vui lòng nhập số tiền hợp lệ (Tối thiểu 10k)!");
-
-        if (!confirm(`Bạn chắc chắn muốn rút ${Number(amount).toLocaleString()} VNĐ?`)) return;
-
-        const formData = new FormData();
-        formData.append('action', 'withdraw');
-        formData.append('amount', amount);
-
-        await sendAction(formData);
-        setTimeout(() => location.reload(), 1500); // Reload cập nhật bảng
-    }
-
-    // Tính năng Mua đồ trong Shop
-    async function buyAction(actionName, itemId = null, giftName = '', cost = 0) {
-        let msg = actionName === 'buy_spin' ? "Mua 1 lượt quay với giá 20.000 VNĐ?" :
-            `Đổi ${giftName} với giá ${Number(cost).toLocaleString()} VNĐ?`;
-        if (!confirm(msg)) return;
-
-        const formData = new FormData();
-        formData.append('action', actionName);
-        if (itemId) formData.append('item_id', itemId);
-
-        await sendAction(formData);
-    }
-
-    // Hàm gọi API dùng chung
-    async function sendAction(formData) {
-        try {
-            const res = await fetch('user_actions.php', {
-                method: 'POST',
-                body: formData
-            });
-            const data = await res.json();
-
-            if (data.success) {
-                alert("🎉 " + data.message);
-                document.getElementById('balance').innerText = data.new_balance.toLocaleString();
-                if (data.spins_left !== undefined) {
-                    document.getElementById('spins').innerText = data.spins_left;
-                    if (data.spins_left > 0) document.getElementById('spinBtn').disabled = false;
-                }
-            } else {
-                alert("❌ " + data.error);
+            } catch (err) {
+                alert("Lỗi kết nối!");
+                console.error(err);
             }
-        } catch (err) {
-            alert("Lỗi kết nối!");
-            console.error(err);
         }
-    }
     </script>
 </body>
 
