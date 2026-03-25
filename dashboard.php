@@ -61,6 +61,19 @@ $user = $stmt->fetch();
         </div>
 
         <div
+            class="bg-gradient-to-r from-red-500 to-orange-500 p-6 rounded-2xl shadow-lg text-white mb-8 flex flex-col sm:flex-row justify-between items-center transform transition hover:scale-[1.02]">
+            <div>
+                <h3 class="text-xl font-bold mb-2">🎲 Mini Game: Bầu Cua Tôm Cá</h3>
+                <p class="text-sm text-red-100">Dùng số dư của bạn để thử nghiệm nhân phẩm, cược càng nhiều ăn càng lớn!
+                </p>
+            </div>
+            <a href="baucua.php"
+                class="mt-4 sm:mt-0 bg-white text-red-600 font-bold px-6 py-3 rounded-full shadow-md hover:bg-slate-100 whitespace-nowrap">
+                Chơi Ngay
+            </a>
+        </div>
+
+        <div
             class="bg-white p-5 sm:p-8 md:p-10 rounded-3xl shadow-xl border border-slate-100 text-center max-w-2xl mx-auto">
             <h2 class="text-xl sm:text-2xl font-bold text-slate-800 mb-6 sm:mb-8">Trải Nghiệm Vận May</h2>
 
