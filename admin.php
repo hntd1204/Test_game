@@ -96,23 +96,6 @@ if (isset($_POST['delete_shop_item'])) {
     exit;
 }
 
-// Lấy dữ liệu cài đặt hiện tại
-$settings = $pdo->query("SELECT * FROM settings WHERE id = 1")->fetch();
-
-// Lấy danh sách tất cả User
-$users_stmt = $pdo->query("SELECT id, username, spins_available FROM users WHERE role = 'user' ORDER BY id DESC");
-$user_list = $users_stmt->fetchAll();
-
-// --- LẤY LỊCH SỬ QUAY THƯỞNG ---
-$history_stmt = $pdo->query("
-    SELECT h.id, u.username, h.reward, h.created_at 
-    FROM spin_history h 
-    JOIN users u ON h.user_id = u.id 
-    ORDER BY h.id DESC LIMIT 50
-");
-$histories = $history_stmt->fetchAll();
-$max_history_id = count($histories) > 0 ? $histories[0]['id'] : 0;
-
 // 6. Xử lý Duyệt / Từ chối Đơn Đổi Quà
 if (isset($_POST['handle_gift'])) {
     $gift_id = (int)$_POST['gift_id'];
@@ -137,18 +120,69 @@ if (isset($_POST['handle_gift'])) {
     exit;
 }
 
-// Xử lý cập nhật nhiệm vụ
-if (isset($_POST['update_mission'])) {
+// --- XỬ LÝ NHIỆM VỤ ĐA NĂNG ---
+
+// Thêm nhiệm vụ (Ánh xạ tự động)
+if (isset($_POST['add_mission'])) {
+    $name = trim($_POST['mission_name']);
+    $game_type = $_POST['game_type'];
     $target = (int)$_POST['target_count'];
     $reward = (int)$_POST['reward_spins'];
-    $pdo->prepare("UPDATE mission_settings SET target_count = ?, reward_spins = ? WHERE id = 1")->execute([$target, $reward]);
+
+    $mapping = [
+        'baucua' => 'baucua_count',
+        'blackjack' => 'blackjack_count'
+    ];
+    $key = $mapping[$game_type] ?? 'baucua_count';
+
+    $stmt = $pdo->prepare("INSERT INTO mission_settings (mission_name, mission_key, target_count, reward_spins) VALUES (?, ?, ?, ?)");
+    $stmt->execute([$name, $key, $target, $reward]);
+
+    // Tự động thêm cột vào bảng users (Bỏ qua lỗi nếu cột đã tồn tại)
+    try {
+        $pdo->exec("ALTER TABLE users ADD COLUMN `$key` INT DEFAULT 0");
+    } catch (Exception $e) {
+    }
+
+    $_SESSION['msg'] = "✅ Đã thêm nhiệm vụ mới thành công!";
+    header("Location: admin.php");
+    exit;
+}
+
+// Cập nhật nhiệm vụ
+if (isset($_POST['update_mission'])) {
+    $m_id = (int)$_POST['m_id'];
+    $target = (int)$_POST['target_count'];
+    $reward = (int)$_POST['reward_spins'];
+    $pdo->prepare("UPDATE mission_settings SET target_count = ?, reward_spins = ? WHERE id = ?")->execute([$target, $reward, $m_id]);
     $_SESSION['msg'] = "✅ Đã cập nhật cấu hình nhiệm vụ!";
     header("Location: admin.php");
     exit;
 }
 
-// Lấy cấu hình nhiệm vụ hiện tại
-$mission = $pdo->query("SELECT * FROM mission_settings WHERE id = 1")->fetch();
+// Xóa nhiệm vụ
+if (isset($_GET['delete_mission'])) {
+    $m_id = (int)$_GET['delete_mission'];
+    $pdo->prepare("DELETE FROM mission_settings WHERE id = ?")->execute([$m_id]);
+    $_SESSION['msg'] = "✅ Đã xóa nhiệm vụ thành công!";
+    header("Location: admin.php");
+    exit;
+}
+
+// --- FETCH DỮ LIỆU HIỂN THỊ ---
+$settings = $pdo->query("SELECT * FROM settings WHERE id = 1")->fetch();
+$users_stmt = $pdo->query("SELECT id, username, spins_available FROM users WHERE role = 'user' ORDER BY id DESC");
+$user_list = $users_stmt->fetchAll();
+$missions = $pdo->query("SELECT * FROM mission_settings")->fetchAll();
+
+$history_stmt = $pdo->query("
+    SELECT h.id, u.username, h.reward, h.created_at 
+    FROM spin_history h 
+    JOIN users u ON h.user_id = u.id 
+    ORDER BY h.id DESC LIMIT 50
+");
+$histories = $history_stmt->fetchAll();
+$max_history_id = count($histories) > 0 ? $histories[0]['id'] : 0;
 ?>
 
 <!DOCTYPE html>
@@ -204,24 +238,76 @@ $mission = $pdo->query("SELECT * FROM mission_settings WHERE id = 1")->fetch();
 
                 <div class="bg-white p-6 rounded-2xl shadow-sm border border-slate-200 mt-6">
                     <h2 class="text-lg font-bold text-slate-800 mb-4 border-b pb-2">🎯 Quản lý Nhiệm vụ</h2>
-                    <form method="POST" class="space-y-4">
-                        <div class="grid grid-cols-2 gap-4">
+
+                    <form method="POST" class="bg-slate-50 p-4 rounded-xl mb-6">
+                        <div class="mb-3">
+                            <label class="block text-xs font-bold text-slate-600 mb-1">Tên nhiệm vụ (VD: Chơi 5 ván Bầu
+                                Cua)</label>
+                            <input type="text" name="mission_name" required
+                                class="w-full px-3 py-2 border rounded-lg outline-none text-sm bg-white">
+                        </div>
+                        <div class="grid grid-cols-1 sm:grid-cols-2 gap-3 mb-3">
                             <div>
-                                <label class="block text-sm font-medium text-slate-600 mb-1">Số ván Bầu Cua yêu
-                                    cầu</label>
-                                <input type="number" name="target_count" value="<?= $mission['target_count'] ?>"
-                                    class="w-full px-4 py-2 border rounded-lg outline-none bg-slate-50">
+                                <label class="block text-xs font-bold text-slate-600 mb-1">Loại Game</label>
+                                <select name="game_type"
+                                    class="w-full px-3 py-2 border rounded-lg outline-none text-sm bg-white cursor-pointer">
+                                    <option value="baucua">Bầu Cua Tôm Cá</option>
+                                    <option value="blackjack">Xì Dách</option>
+                                </select>
                             </div>
-                            <div>
-                                <label class="block text-sm font-medium text-slate-600 mb-1">Thưởng lượt quay</label>
-                                <input type="number" name="reward_spins" value="<?= $mission['reward_spins'] ?>"
-                                    class="w-full px-4 py-2 border rounded-lg outline-none bg-slate-50">
+                            <div class="flex gap-2">
+                                <div class="w-1/2">
+                                    <label class="block text-xs font-bold text-slate-600 mb-1">Số ván</label>
+                                    <input type="number" name="target_count" required
+                                        class="w-full px-3 py-2 border rounded-lg outline-none text-sm bg-white">
+                                </div>
+                                <div class="w-1/2">
+                                    <label class="block text-xs font-bold text-slate-600 mb-1">Thưởng lượt</label>
+                                    <input type="number" name="reward_spins" required
+                                        class="w-full px-3 py-2 border rounded-lg outline-none text-sm bg-white">
+                                </div>
                             </div>
                         </div>
-                        <button type="submit" name="update_mission"
-                            class="w-full bg-purple-600 hover:bg-purple-700 text-white font-medium py-2.5 rounded-lg transition shadow-md">Cập
-                            nhật Nhiệm vụ</button>
+                        <button type="submit" name="add_mission"
+                            class="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 rounded-lg transition shadow-md text-sm">Thêm
+                            Nhiệm Vụ Mới</button>
                     </form>
+
+                    <div class="space-y-3">
+                        <label class="block text-sm font-bold text-slate-700 mb-2">Danh sách hiện tại:</label>
+                        <?php foreach ($missions as $m): ?>
+                            <form method="POST"
+                                class="flex flex-wrap items-center justify-between gap-2 p-3 border rounded-xl hover:bg-slate-50 transition">
+                                <input type="hidden" name="m_id" value="<?= $m['id'] ?>">
+                                <div class="w-full sm:w-auto flex-1 min-w-[120px]">
+                                    <p class="font-bold text-sm text-slate-800"><?= htmlspecialchars($m['mission_name']) ?>
+                                    </p>
+                                    <p class="text-[10px] text-slate-500">Mã: <?= htmlspecialchars($m['mission_key']) ?></p>
+                                </div>
+                                <div class="flex items-center gap-2">
+                                    <input type="number" name="target_count" value="<?= $m['target_count'] ?>"
+                                        class="w-14 px-2 py-1 border rounded outline-none text-sm text-center"
+                                        title="Số ván yêu cầu">
+                                    <span class="text-xs text-slate-400">ván/</span>
+                                    <input type="number" name="reward_spins" value="<?= $m['reward_spins'] ?>"
+                                        class="w-14 px-2 py-1 border rounded outline-none text-sm text-center"
+                                        title="Thưởng lượt quay">
+                                    <span class="text-xs text-slate-400">lượt</span>
+                                </div>
+                                <div class="flex items-center gap-1 w-full sm:w-auto justify-end mt-2 sm:mt-0">
+                                    <button type="submit" name="update_mission"
+                                        class="bg-emerald-100 text-emerald-700 hover:bg-emerald-200 px-3 py-1.5 rounded font-bold text-xs transition">Lưu</button>
+                                    <a href="?delete_mission=<?= $m['id'] ?>"
+                                        onclick="return confirm('Bạn có chắc muốn xóa nhiệm vụ này?')"
+                                        class="bg-red-100 text-red-600 hover:bg-red-200 px-3 py-1.5 rounded font-bold text-xs transition">Xóa</a>
+                                </div>
+                            </form>
+                        <?php endforeach; ?>
+                        <?php if (empty($missions)): ?>
+                            <p class="text-xs text-slate-400 text-center py-2 border border-dashed rounded-lg">Chưa có cấu
+                                hình nhiệm vụ nào.</p>
+                        <?php endif; ?>
+                    </div>
                 </div>
 
                 <div class="bg-white p-6 rounded-2xl shadow-sm border border-slate-200">
@@ -513,7 +599,7 @@ $mission = $pdo->query("SELECT * FROM mission_settings WHERE id = 1")->fetch();
         $bc_histories = $pdo->query("SELECT b.*, u.username FROM baucua_history b JOIN users u ON b.user_id = u.id ORDER BY b.id DESC LIMIT 50")->fetchAll();
         $bc_icons = ['nai' => '🦌', 'bau' => '🎃', 'ga' => '🐓', 'ca' => '🐟', 'cua' => '🦀', 'tom' => '🦐'];
 
-        // --- THỐNG KÊ XÌ DÁCH ---
+        // Lấy Thống Kê Xì Dách
         $bj_stats = $pdo->query("SELECT SUM(bet) as sum_bet, SUM(win) as sum_win FROM blackjack_history")->fetch();
         $bj_nhacai_profit = ($bj_stats['sum_bet'] ?? 0) - ($bj_stats['sum_win'] ?? 0);
         $bj_histories = $pdo->query("SELECT b.*, u.username FROM blackjack_history b JOIN users u ON b.user_id = u.id ORDER BY b.id DESC LIMIT 50")->fetchAll();

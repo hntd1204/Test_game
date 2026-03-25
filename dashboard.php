@@ -7,17 +7,16 @@ if (!isset($_SESSION['user_id']) || $_SESSION['role'] !== 'user') {
     exit;
 }
 
-// Lấy thông tin user (thêm baucua_count để phục vụ nhiệm vụ)
-$stmt = $pdo->prepare("SELECT balance, spins_available, baucua_count FROM users WHERE id = ?");
+// Lấy thông tin user (để hiển thị số dư, lượt quay và tiến độ các nhiệm vụ)
+$stmt = $pdo->prepare("SELECT * FROM users WHERE id = ?");
 $stmt->execute([$_SESSION['user_id']]);
 $user = $stmt->fetch();
 
-// Lấy cấu hình nhiệm vụ từ Admin
+// Lấy toàn bộ cấu hình nhiệm vụ hiện có từ Admin
 try {
-    $mission = $pdo->query("SELECT target_count, reward_spins FROM mission_settings WHERE id = 1")->fetch();
+    $missions = $pdo->query("SELECT * FROM mission_settings")->fetchAll();
 } catch (Exception $e) {
-    // Giá trị mặc định nếu chưa chạy SQL tạo bảng mission_settings
-    $mission = ['target_count' => 5, 'reward_spins' => 1];
+    $missions = []; // Tránh lỗi nếu bảng chưa được tạo
 }
 
 // Truy vấn lịch sử quay thưởng cá nhân
@@ -74,24 +73,50 @@ try {
 
     <main class="max-w-4xl mx-auto mt-6 sm:mt-10 px-4 pb-10">
 
-        <div class="bg-white p-5 rounded-2xl shadow-sm border border-slate-200 mb-6">
-            <div class="flex justify-between items-center mb-3">
-                <h3 class="text-sm font-bold text-slate-700 uppercase">🎯 Nhiệm vụ hiện tại</h3>
-                <span class="text-xs font-bold text-purple-600 bg-purple-50 px-2 py-1 rounded">Thưởng
-                    +<?= $mission['reward_spins'] ?> lượt quay</span>
+        <div class="bg-white p-5 sm:p-6 rounded-2xl shadow-sm border border-slate-200 mb-6">
+            <div class="flex items-center gap-2 mb-4">
+                <span class="text-xl">🎯</span>
+                <h3 class="text-sm font-bold text-slate-800 uppercase tracking-wide">Nhiệm vụ nhận lượt quay</h3>
             </div>
-            <p class="text-xs text-slate-500 mb-3">Chơi đủ <?= $mission['target_count'] ?> ván Bầu Cua để nhận thưởng
-                lượt quay miễn phí.</p>
-            <div class="w-full bg-slate-100 rounded-full h-2.5 mb-1">
-                <?php
-                $progress = min(100, ($user['baucua_count'] / $mission['target_count']) * 100);
+
+            <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <?php foreach ($missions as $ms):
+                    // Lấy số lượng hiện tại (Nếu cột chưa tồn tại trong User, mặc định là 0)
+                    $currentProgress = isset($user[$ms['mission_key']]) ? (int)$user[$ms['mission_key']] : 0;
+                    $percent = min(100, ($currentProgress / $ms['target_count']) * 100);
                 ?>
-                <div class="bg-purple-600 h-2.5 rounded-full transition-all duration-500"
-                    style="width: <?= $progress ?>%"></div>
-            </div>
-            <div class="flex justify-between text-[10px] font-bold text-slate-400">
-                <span>TIẾN ĐỘ: <?= $user['baucua_count'] ?>/<?= $mission['target_count'] ?> ván</span>
-                <span><?= round($progress) ?>%</span>
+                    <div
+                        class="p-4 bg-slate-50 rounded-xl border border-slate-100 relative overflow-hidden group hover:shadow-md transition">
+                        <div class="absolute top-0 left-0 h-full bg-blue-50/50 transition-all duration-700 -z-10"
+                            style="width: <?= $percent ?>%"></div>
+
+                        <div class="flex justify-between items-start mb-2">
+                            <div>
+                                <span
+                                    class="text-sm font-bold text-slate-800 block"><?= htmlspecialchars($ms['mission_name']) ?></span>
+                                <span
+                                    class="text-[10px] font-bold text-green-600 bg-green-100 px-2 py-0.5 rounded-full mt-1 inline-block">+<?= $ms['reward_spins'] ?>
+                                    Lượt quay</span>
+                            </div>
+                            <span
+                                class="text-xs font-black text-blue-600 bg-white px-2 py-1 rounded shadow-sm border border-blue-100">
+                                <?= $currentProgress ?>/<?= $ms['target_count'] ?>
+                            </span>
+                        </div>
+
+                        <div class="w-full bg-slate-200 rounded-full h-1.5 mt-3">
+                            <div class="bg-gradient-to-r from-blue-500 to-purple-500 h-1.5 rounded-full transition-all duration-700"
+                                style="width: <?= $percent ?>%"></div>
+                        </div>
+                    </div>
+                <?php endforeach; ?>
+
+                <?php if (empty($missions)): ?>
+                    <div
+                        class="col-span-1 sm:col-span-2 text-center py-4 border-2 border-dashed border-slate-200 rounded-xl text-slate-400 text-sm">
+                        Chưa có nhiệm vụ nào được hệ thống cấu hình.
+                    </div>
+                <?php endif; ?>
             </div>
         </div>
 
@@ -304,7 +329,7 @@ try {
     </main>
 
     <script>
-        // MỚI: Âm thanh hệ thống
+        // Âm thanh hệ thống
         const sounds = {
             spin: new Audio('https://www.soundjay.com/misc/sounds/mechanical-clonk-1.mp3'),
             win: new Audio('https://www.soundjay.com/misc/sounds/bell-ringing-05.mp3'),
@@ -376,7 +401,6 @@ try {
             }
         });
 
-        // Giữ nguyên các hàm JS cũ của bạn bên dưới
         async function requestWithdraw() {
             const amount = document.getElementById('withdrawAmount').value;
             if (!amount || amount < 10000) return alert("Vui lòng nhập số tiền hợp lệ (Tối thiểu 10k)!");

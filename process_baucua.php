@@ -73,11 +73,9 @@ try {
         }
     }
 
-    // Cộng tiền thắng
+    // Cộng tiền thắng và tăng số ván Bầu Cua (baucua_count)
     $newBalance += $winnings;
-
-    // Cập nhật Database
-    $updateStmt = $pdo->prepare("UPDATE users SET balance = ? WHERE id = ?");
+    $updateStmt = $pdo->prepare("UPDATE users SET balance = ?, baucua_count = baucua_count + 1 WHERE id = ?");
     $updateStmt->execute([$newBalance, $userId]);
 
     // Tính Lãi/Lỗ thực tế
@@ -89,6 +87,31 @@ try {
     $insertHistory = $pdo->prepare("INSERT INTO baucua_history (user_id, bet_details, dice_result, total_bet, total_win, net_profit) VALUES (?, ?, ?, ?, ?, ?)");
     $insertHistory->execute([$userId, $bet_details_json, $dice_result_str, $totalBet, $winnings, $net_profit]);
 
+    // --- XỬ LÝ NHIỆM VỤ ĐA NĂNG ---
+    $mission_info = ['rewarded' => false];
+    $currentCount = $pdo->query("SELECT baucua_count FROM users WHERE id = $userId")->fetchColumn();
+    $missions = $pdo->query("SELECT * FROM mission_settings WHERE mission_key = 'baucua_count'")->fetchAll();
+
+    foreach ($missions as $m) {
+        if ($currentCount >= $m['target_count']) {
+            // Đạt mục tiêu -> Thưởng lượt quay và Reset biến đếm
+            $pdo->prepare("UPDATE users SET spins_available = spins_available + ?, baucua_count = 0 WHERE id = ?")
+                ->execute([$m['reward_spins'], $userId]);
+
+            $mission_info = [
+                'rewarded' => true,
+                'current' => $currentCount,
+                'target' => $m['target_count']
+            ];
+            break; // Thưởng 1 nhiệm vụ 1 lúc
+        }
+    }
+    // Lấy lại tiến độ để hiện UI nếu không được thưởng
+    if (!$mission_info['rewarded'] && count($missions) > 0) {
+        $mission_info['current'] = $currentCount;
+        $mission_info['target'] = $missions[0]['target_count'];
+    }
+
     $pdo->commit();
 
     echo json_encode([
@@ -98,7 +121,8 @@ try {
         'total_bet' => $totalBet,
         'net_profit' => $net_profit,
         'new_balance' => $newBalance,
-        'winning_counts' => $winning_counts
+        'winning_counts' => $winning_counts,
+        'mission' => $mission_info
     ]);
 } catch (Exception $e) {
     $pdo->rollBack();

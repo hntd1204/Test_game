@@ -72,6 +72,25 @@ function saveHistory($pdo, $userId, $bet, $win)
     $pdo->prepare("INSERT INTO blackjack_history (user_id, bet, win, net_profit) VALUES (?, ?, ?, ?)")->execute([$userId, $bet, $win, $net]);
 }
 
+// Hàm xử lý chung tiến độ Nhiệm Vụ Xì Dách
+function handleBlackjackMission($pdo, $userId)
+{
+    $pdo->prepare("UPDATE users SET blackjack_count = blackjack_count + 1 WHERE id = ?")->execute([$userId]);
+    $currentCount = $pdo->query("SELECT blackjack_count FROM users WHERE id = $userId")->fetchColumn();
+    $missions = $pdo->query("SELECT * FROM mission_settings WHERE mission_key = 'blackjack_count'")->fetchAll();
+
+    $mission_info = ['rewarded' => false];
+    foreach ($missions as $m) {
+        if ($currentCount >= $m['target_count']) {
+            $pdo->prepare("UPDATE users SET spins_available = spins_available + ?, blackjack_count = 0 WHERE id = ?")
+                ->execute([$m['reward_spins'], $userId]);
+            $mission_info = ['rewarded' => true];
+            break;
+        }
+    }
+    return $mission_info;
+}
+
 if ($action === 'deal') {
     $bet = (int)($_POST['bet'] ?? 0);
     if ($bet <= 0) {
@@ -128,6 +147,10 @@ if ($action === 'deal') {
             $newBalance += $winnings;
             $pdo->prepare("UPDATE users SET balance = ? WHERE id = ?")->execute([$newBalance, $userId]);
             saveHistory($pdo, $userId, $bet, $winnings);
+
+            // Cập nhật nhiệm vụ
+            $mission_info = handleBlackjackMission($pdo, $userId);
+
             $pdo->commit();
             unset($_SESSION['bj']);
 
@@ -141,7 +164,8 @@ if ($action === 'deal') {
                 'winnings' => $winnings,
                 'net_profit' => $winnings - $bet,
                 'balance' => $newBalance,
-                'message' => $message
+                'message' => $message,
+                'mission' => $mission_info
             ]);
             exit;
         }
@@ -188,13 +212,18 @@ if ($action === 'hit') {
 
     if ($isEnd) {
         $pdo->beginTransaction();
-        $stmt = $pdo->prepare("SELECT balance FROM users WHERE id = ? FOR UPDATE")->execute([$userId]);
-        $user = $pdo->query("SELECT balance FROM users WHERE id = $userId")->fetch();
+        $stmt = $pdo->prepare("SELECT balance FROM users WHERE id = ? FOR UPDATE");
+        $stmt->execute([$userId]);
+        $user = $stmt->fetch();
 
         $newBalance = $user['balance'] + $winnings;
         if ($winnings > 0) $pdo->prepare("UPDATE users SET balance = ? WHERE id = ?")->execute([$newBalance, $userId]);
 
         saveHistory($pdo, $userId, $bj['bet'], $winnings);
+
+        // Cập nhật nhiệm vụ
+        $mission_info = handleBlackjackMission($pdo, $userId);
+
         $pdo->commit();
 
         $dealerHand = $bj['dealer'];
@@ -210,7 +239,8 @@ if ($action === 'hit') {
             'winnings' => $winnings,
             'net_profit' => $winnings - $bj['bet'],
             'balance' => $newBalance,
-            'message' => $message
+            'message' => $message,
+            'mission' => $mission_info
         ]);
         exit;
     }
@@ -256,13 +286,18 @@ if ($action === 'stand') {
     }
 
     $pdo->beginTransaction();
-    $stmt = $pdo->prepare("SELECT balance FROM users WHERE id = ? FOR UPDATE")->execute([$userId]);
-    $user = $pdo->query("SELECT balance FROM users WHERE id = $userId")->fetch();
+    $stmt = $pdo->prepare("SELECT balance FROM users WHERE id = ? FOR UPDATE");
+    $stmt->execute([$userId]);
+    $user = $stmt->fetch();
 
     $newBalance = $user['balance'] + $winnings;
     if ($winnings > 0) $pdo->prepare("UPDATE users SET balance = ? WHERE id = ?")->execute([$newBalance, $userId]);
 
     saveHistory($pdo, $userId, $bj['bet'], $winnings);
+
+    // Cập nhật nhiệm vụ
+    $mission_info = handleBlackjackMission($pdo, $userId);
+
     $pdo->commit();
     unset($_SESSION['bj']);
 
@@ -276,7 +311,8 @@ if ($action === 'stand') {
         'winnings' => $winnings,
         'net_profit' => $winnings - $bj['bet'],
         'balance' => $newBalance,
-        'message' => $message
+        'message' => $message,
+        'mission' => $mission_info
     ]);
     exit;
 }
