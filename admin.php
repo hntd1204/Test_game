@@ -161,9 +161,9 @@ if (isset($_POST['handle_gift'])) {
 
     <main class="max-w-6xl mx-auto mt-8 px-4 pb-10">
         <?php if ($msg): ?>
-        <div class="bg-indigo-100 text-indigo-800 p-4 rounded-lg mb-6 font-medium shadow-sm border border-indigo-200">
-            <?= $msg ?>
-        </div>
+            <div class="bg-indigo-100 text-indigo-800 p-4 rounded-lg mb-6 font-medium shadow-sm border border-indigo-200">
+                <?= $msg ?>
+            </div>
         <?php endif; ?>
 
         <div class="grid lg:grid-cols-2 gap-6">
@@ -197,9 +197,9 @@ if (isset($_POST['handle_gift'])) {
                                 class="w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-slate-500 outline-none bg-slate-50 cursor-pointer">
                                 <option value="">-- Chọn User --</option>
                                 <?php foreach ($user_list as $u): ?>
-                                <option value="<?= $u['id'] ?>">
-                                    <?= htmlspecialchars($u['username']) ?> (Đang có: <?= $u['spins_available'] ?> lượt)
-                                </option>
+                                    <option value="<?= $u['id'] ?>">
+                                        <?= htmlspecialchars($u['username']) ?> (Đang có: <?= $u['spins_available'] ?> lượt)
+                                    </option>
                                 <?php endforeach; ?>
                             </select>
                         </div>
@@ -246,20 +246,20 @@ if (isset($_POST['handle_gift'])) {
                                     $items_stmt = $pdo->query("SELECT * FROM shop_items ORDER BY cost ASC");
                                     while ($item = $items_stmt->fetch()):
                                 ?>
-                                <tr class="hover:bg-slate-50">
-                                    <td class="px-3 py-2 font-medium text-slate-800">
-                                        <?= htmlspecialchars($item['name']) ?></td>
-                                    <td class="px-3 py-2 font-bold text-green-600"><?= number_format($item['cost']) ?>đ
-                                    </td>
-                                    <td class="px-3 py-2 text-right">
-                                        <form method="POST"
-                                            onsubmit="return confirm('Bạn có chắc muốn xóa món quà này khỏi Shop?');">
-                                            <input type="hidden" name="item_id" value="<?= $item['id'] ?>">
-                                            <button type="submit" name="delete_shop_item"
-                                                class="text-red-500 hover:text-red-700 font-bold bg-red-50 hover:bg-red-100 px-2 py-1 rounded">Xóa</button>
-                                        </form>
-                                    </td>
-                                </tr>
+                                        <tr class="hover:bg-slate-50">
+                                            <td class="px-3 py-2 font-medium text-slate-800">
+                                                <?= htmlspecialchars($item['name']) ?></td>
+                                            <td class="px-3 py-2 font-bold text-green-600"><?= number_format($item['cost']) ?>đ
+                                            </td>
+                                            <td class="px-3 py-2 text-right">
+                                                <form method="POST"
+                                                    onsubmit="return confirm('Bạn có chắc muốn xóa món quà này khỏi Shop?');">
+                                                    <input type="hidden" name="item_id" value="<?= $item['id'] ?>">
+                                                    <button type="submit" name="delete_shop_item"
+                                                        class="text-red-500 hover:text-red-700 font-bold bg-red-50 hover:bg-red-100 px-2 py-1 rounded">Xóa</button>
+                                                </form>
+                                            </td>
+                                        </tr>
                                 <?php
                                     endwhile;
                                 } catch (Exception $e) {
@@ -287,13 +287,13 @@ if (isset($_POST['handle_gift'])) {
                                 $full_users_stmt = $pdo->query("SELECT username, balance, spins_available FROM users WHERE role = 'user' ORDER BY id DESC");
                                 while ($row = $full_users_stmt->fetch()):
                                 ?>
-                                <tr class="hover:bg-slate-50">
-                                    <td class="px-4 py-3 font-medium text-slate-800">
-                                        <?= htmlspecialchars($row['username']) ?></td>
-                                    <td class="px-4 py-3 text-blue-600 font-semibold">
-                                        <?= number_format($row['balance']) ?>đ</td>
-                                    <td class="px-4 py-3 font-bold"><?= $row['spins_available'] ?></td>
-                                </tr>
+                                    <tr class="hover:bg-slate-50">
+                                        <td class="px-4 py-3 font-medium text-slate-800">
+                                            <?= htmlspecialchars($row['username']) ?></td>
+                                        <td class="px-4 py-3 text-blue-600 font-semibold">
+                                            <?= number_format($row['balance']) ?>đ</td>
+                                        <td class="px-4 py-3 font-bold"><?= $row['spins_available'] ?></td>
+                                    </tr>
                                 <?php endwhile; ?>
                             </tbody>
                         </table>
@@ -318,40 +318,40 @@ if (isset($_POST['handle_gift'])) {
                                     $wd_stmt = $pdo->query("SELECT w.*, u.username FROM withdrawals w JOIN users u ON w.user_id = u.id ORDER BY w.id DESC");
                                     while ($w = $wd_stmt->fetch()):
                                 ?>
-                                <tr class="hover:bg-slate-50">
-                                    <td class="px-3 py-3 font-medium text-slate-800">
-                                        <?= htmlspecialchars($w['username']) ?></td>
-                                    <td class="px-3 py-3 font-bold text-blue-600"><?= number_format($w['amount']) ?>đ
-                                    </td>
-                                    <td class="px-3 py-3">
-                                        <?php if ($w['status'] == 'pending'): ?>
-                                        <span
-                                            class="bg-yellow-100 text-yellow-700 px-2 py-1 rounded text-xs font-bold">Chờ
-                                            duyệt</span>
-                                        <?php elseif ($w['status'] == 'approved'): ?>
-                                        <span class="bg-green-100 text-green-700 px-2 py-1 rounded text-xs font-bold">Đã
-                                            duyệt</span>
-                                        <?php else: ?>
-                                        <span class="bg-red-100 text-red-700 px-2 py-1 rounded text-xs font-bold">Từ
-                                            chối</span>
-                                        <?php endif; ?>
-                                    </td>
-                                    <td class="px-3 py-3 text-right">
-                                        <?php if ($w['status'] == 'pending'): ?>
-                                        <form method="POST" class="inline-flex gap-1">
-                                            <input type="hidden" name="withdraw_id" value="<?= $w['id'] ?>">
-                                            <button type="submit" name="handle_withdraw" value="1"
-                                                onclick="document.getElementById('wd_act_<?= $w['id'] ?>').value='approve'"
-                                                class="bg-green-500 hover:bg-green-600 text-white px-2 py-1 rounded text-xs font-bold">Duyệt</button>
-                                            <button type="submit" name="handle_withdraw" value="1"
-                                                onclick="document.getElementById('wd_act_<?= $w['id'] ?>').value='reject'"
-                                                class="bg-red-500 hover:bg-red-600 text-white px-2 py-1 rounded text-xs font-bold">Hủy</button>
-                                            <input type="hidden" id="wd_act_<?= $w['id'] ?>" name="withdraw_action"
-                                                value="">
-                                        </form>
-                                        <?php endif; ?>
-                                    </td>
-                                </tr>
+                                        <tr class="hover:bg-slate-50">
+                                            <td class="px-3 py-3 font-medium text-slate-800">
+                                                <?= htmlspecialchars($w['username']) ?></td>
+                                            <td class="px-3 py-3 font-bold text-blue-600"><?= number_format($w['amount']) ?>đ
+                                            </td>
+                                            <td class="px-3 py-3">
+                                                <?php if ($w['status'] == 'pending'): ?>
+                                                    <span
+                                                        class="bg-yellow-100 text-yellow-700 px-2 py-1 rounded text-xs font-bold">Chờ
+                                                        duyệt</span>
+                                                <?php elseif ($w['status'] == 'approved'): ?>
+                                                    <span class="bg-green-100 text-green-700 px-2 py-1 rounded text-xs font-bold">Đã
+                                                        duyệt</span>
+                                                <?php else: ?>
+                                                    <span class="bg-red-100 text-red-700 px-2 py-1 rounded text-xs font-bold">Từ
+                                                        chối</span>
+                                                <?php endif; ?>
+                                            </td>
+                                            <td class="px-3 py-3 text-right">
+                                                <?php if ($w['status'] == 'pending'): ?>
+                                                    <form method="POST" class="inline-flex gap-1">
+                                                        <input type="hidden" name="withdraw_id" value="<?= $w['id'] ?>">
+                                                        <button type="submit" name="handle_withdraw" value="1"
+                                                            onclick="document.getElementById('wd_act_<?= $w['id'] ?>').value='approve'"
+                                                            class="bg-green-500 hover:bg-green-600 text-white px-2 py-1 rounded text-xs font-bold">Duyệt</button>
+                                                        <button type="submit" name="handle_withdraw" value="1"
+                                                            onclick="document.getElementById('wd_act_<?= $w['id'] ?>').value='reject'"
+                                                            class="bg-red-500 hover:bg-red-600 text-white px-2 py-1 rounded text-xs font-bold">Hủy</button>
+                                                        <input type="hidden" id="wd_act_<?= $w['id'] ?>" name="withdraw_action"
+                                                            value="">
+                                                    </form>
+                                                <?php endif; ?>
+                                            </td>
+                                        </tr>
                                 <?php
                                     endwhile;
                                 } catch (Exception $e) {
@@ -381,41 +381,41 @@ if (isset($_POST['handle_gift'])) {
                                     $gifts_stmt = $pdo->query("SELECT g.*, u.username FROM user_gifts g JOIN users u ON g.user_id = u.id ORDER BY g.id DESC");
                                     while ($g = $gifts_stmt->fetch()):
                                 ?>
-                                <tr class="hover:bg-slate-50">
-                                    <td class="px-3 py-3 font-medium text-slate-800">
-                                        <?= htmlspecialchars($g['username']) ?></td>
-                                    <td class="px-3 py-3 font-bold text-green-600">
-                                        <?= htmlspecialchars($g['gift_name']) ?></td>
-                                    <td class="px-3 py-3">
-                                        <?php if ($g['status'] == 'pending'): ?>
-                                        <span
-                                            class="bg-yellow-100 text-yellow-700 px-2 py-1 rounded text-xs font-bold">Chờ
-                                            xử lý</span>
-                                        <?php elseif ($g['status'] == 'completed'): ?>
-                                        <span class="bg-green-100 text-green-700 px-2 py-1 rounded text-xs font-bold">Đã
-                                            trao</span>
-                                        <?php else: ?>
-                                        <span class="bg-red-100 text-red-700 px-2 py-1 rounded text-xs font-bold">Đã
-                                            hủy</span>
-                                        <?php endif; ?>
-                                    </td>
-                                    <td class="px-3 py-3 text-right">
-                                        <?php if ($g['status'] == 'pending'): ?>
-                                        <form method="POST" class="inline-flex gap-1">
-                                            <input type="hidden" name="gift_id" value="<?= $g['id'] ?>">
-                                            <button type="submit" name="handle_gift" value="1"
-                                                onclick="document.getElementById('gf_act_<?= $g['id'] ?>').value='complete'"
-                                                class="bg-green-500 hover:bg-green-600 text-white px-2 py-1 rounded text-xs font-bold">Hoàn
-                                                thành</button>
-                                            <button type="submit" name="handle_gift" value="1"
-                                                onclick="document.getElementById('gf_act_<?= $g['id'] ?>').value='reject'"
-                                                class="bg-red-500 hover:bg-red-600 text-white px-2 py-1 rounded text-xs font-bold">Hủy</button>
-                                            <input type="hidden" id="gf_act_<?= $g['id'] ?>" name="gift_action"
-                                                value="">
-                                        </form>
-                                        <?php endif; ?>
-                                    </td>
-                                </tr>
+                                        <tr class="hover:bg-slate-50">
+                                            <td class="px-3 py-3 font-medium text-slate-800">
+                                                <?= htmlspecialchars($g['username']) ?></td>
+                                            <td class="px-3 py-3 font-bold text-green-600">
+                                                <?= htmlspecialchars($g['gift_name']) ?></td>
+                                            <td class="px-3 py-3">
+                                                <?php if ($g['status'] == 'pending'): ?>
+                                                    <span
+                                                        class="bg-yellow-100 text-yellow-700 px-2 py-1 rounded text-xs font-bold">Chờ
+                                                        xử lý</span>
+                                                <?php elseif ($g['status'] == 'completed'): ?>
+                                                    <span class="bg-green-100 text-green-700 px-2 py-1 rounded text-xs font-bold">Đã
+                                                        trao</span>
+                                                <?php else: ?>
+                                                    <span class="bg-red-100 text-red-700 px-2 py-1 rounded text-xs font-bold">Đã
+                                                        hủy</span>
+                                                <?php endif; ?>
+                                            </td>
+                                            <td class="px-3 py-3 text-right">
+                                                <?php if ($g['status'] == 'pending'): ?>
+                                                    <form method="POST" class="inline-flex gap-1">
+                                                        <input type="hidden" name="gift_id" value="<?= $g['id'] ?>">
+                                                        <button type="submit" name="handle_gift" value="1"
+                                                            onclick="document.getElementById('gf_act_<?= $g['id'] ?>').value='complete'"
+                                                            class="bg-green-500 hover:bg-green-600 text-white px-2 py-1 rounded text-xs font-bold">Hoàn
+                                                            thành</button>
+                                                        <button type="submit" name="handle_gift" value="1"
+                                                            onclick="document.getElementById('gf_act_<?= $g['id'] ?>').value='reject'"
+                                                            class="bg-red-500 hover:bg-red-600 text-white px-2 py-1 rounded text-xs font-bold">Hủy</button>
+                                                        <input type="hidden" id="gf_act_<?= $g['id'] ?>" name="gift_action"
+                                                            value="">
+                                                    </form>
+                                                <?php endif; ?>
+                                            </td>
+                                        </tr>
                                 <?php
                                     endwhile;
                                 } catch (Exception $e) {
@@ -450,19 +450,19 @@ if (isset($_POST['handle_gift'])) {
                         </thead>
                         <tbody id="history-table-body" class="divide-y divide-slate-100">
                             <?php foreach ($histories as $h): ?>
-                            <tr class="hover:bg-slate-50 transition">
-                                <td class="px-4 py-3 text-xs text-slate-500">
-                                    <?= date('H:i:s d/m', strtotime($h['created_at'])) ?></td>
-                                <td class="px-4 py-3 font-medium text-blue-600"><?= htmlspecialchars($h['username']) ?>
-                                </td>
-                                <td class="px-4 py-3 font-bold text-green-600 text-right">
-                                    +<?= number_format($h['reward']) ?> đ</td>
-                            </tr>
+                                <tr class="hover:bg-slate-50 transition">
+                                    <td class="px-4 py-3 text-xs text-slate-500">
+                                        <?= date('H:i:s d/m', strtotime($h['created_at'])) ?></td>
+                                    <td class="px-4 py-3 font-medium text-blue-600"><?= htmlspecialchars($h['username']) ?>
+                                    </td>
+                                    <td class="px-4 py-3 font-bold text-green-600 text-right">
+                                        +<?= number_format($h['reward']) ?> đ</td>
+                                </tr>
                             <?php endforeach; ?>
                             <?php if (count($histories) == 0): ?>
-                            <tr>
-                                <td colspan="3" class="text-center py-4 text-slate-400">Chưa có lịch sử quay nào.</td>
-                            </tr>
+                                <tr>
+                                    <td colspan="3" class="text-center py-4 text-slate-400">Chưa có lịch sử quay nào.</td>
+                                </tr>
                             <?php endif; ?>
                         </tbody>
                     </table>
@@ -470,87 +470,149 @@ if (isset($_POST['handle_gift'])) {
             </div>
 
         </div>
+
+        <?php
+        // Lấy thống kê
+        $bc_stats = $pdo->query("SELECT SUM(total_bet) as sum_bet, SUM(total_win) as sum_win FROM baucua_history")->fetch();
+        $nhacai_profit = ($bc_stats['sum_bet'] ?? 0) - ($bc_stats['sum_win'] ?? 0);
+        $bc_histories = $pdo->query("SELECT b.*, u.username FROM baucua_history b JOIN users u ON b.user_id = u.id ORDER BY b.id DESC LIMIT 50")->fetchAll();
+        $bc_icons = ['nai' => '🦌', 'bau' => '🎃', 'ga' => '🐓', 'ca' => '🐟', 'cua' => '🦀', 'tom' => '🦐'];
+        ?>
+        <div class="mt-8 bg-white rounded-2xl shadow-sm border border-slate-200 lg:col-span-2">
+            <div class="p-6 border-b border-slate-200 flex flex-col sm:flex-row justify-between items-center gap-4">
+                <div>
+                    <h2 class="text-lg font-bold text-slate-800">🎲 Thống Kê Bầu Cua</h2>
+                    <p class="text-sm text-slate-500">Giám sát dòng tiền cược của người chơi</p>
+                </div>
+                <div class="flex gap-4">
+                    <div class="bg-slate-50 border border-slate-200 px-4 py-2 rounded-xl text-center">
+                        <p class="text-xs text-slate-500 font-bold mb-1">NHÀ CÁI LÃI</p>
+                        <p class="text-lg font-bold <?= $nhacai_profit >= 0 ? 'text-green-600' : 'text-red-500' ?>">
+                            <?= $nhacai_profit >= 0 ? '+' : '' ?><?= number_format($nhacai_profit) ?>đ
+                        </p>
+                    </div>
+                </div>
+            </div>
+
+            <div class="overflow-x-auto max-h-[400px]">
+                <table class="w-full text-left text-sm text-slate-600 whitespace-nowrap">
+                    <thead class="bg-slate-100 text-slate-700 sticky top-0">
+                        <tr>
+                            <th class="px-4 py-3">Thời gian</th>
+                            <th class="px-4 py-3">Người chơi</th>
+                            <th class="px-4 py-3">Chi tiết cược</th>
+                            <th class="px-4 py-3">Xí ngầu</th>
+                            <th class="px-4 py-3 text-right">Lãi/Lỗ User</th>
+                        </tr>
+                    </thead>
+                    <tbody class="divide-y divide-slate-100">
+                        <?php foreach ($bc_histories as $bc):
+                            $bets = json_decode($bc['bet_details'], true);
+                            $bet_html = [];
+                            foreach ($bets as $animal => $amt) {
+                                $bet_html[] = "<span class='bg-slate-100 px-2 py-1 rounded text-xs'>{$bc_icons[$animal]} " . ($amt / 1000) . "K</span>";
+                            }
+                            $dice = explode(',', $bc['dice_result']);
+                            $dice_html = "{$bc_icons[$dice[0]]} {$bc_icons[$dice[1]]} {$bc_icons[$dice[2]]}";
+                        ?>
+                            <tr class="hover:bg-slate-50">
+                                <td class="px-4 py-3 text-xs"><?= date('H:i d/m', strtotime($bc['created_at'])) ?></td>
+                                <td class="px-4 py-3 font-bold text-blue-600"><?= htmlspecialchars($bc['username']) ?></td>
+                                <td class="px-4 py-3 flex gap-1 flex-wrap min-w-[150px]"><?= implode(' ', $bet_html) ?></td>
+                                <td class="px-4 py-3 text-lg"><?= $dice_html ?></td>
+                                <td
+                                    class="px-4 py-3 text-right font-bold <?= $bc['net_profit'] > 0 ? 'text-green-500' : ($bc['net_profit'] < 0 ? 'text-red-500' : 'text-slate-500') ?>">
+                                    <?= $bc['net_profit'] > 0 ? '+' : '' ?><?= number_format($bc['net_profit']) ?>đ
+                                </td>
+                            </tr>
+                        <?php endforeach; ?>
+                        <?php if (count($bc_histories) == 0) echo '<tr><td colspan="5" class="text-center py-4 text-slate-400">Chưa có dữ liệu</td></tr>'; ?>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+        ```
     </main>
 
     <script>
-    let lastId = <?= $max_history_id ?>;
+        let lastId = <?= $max_history_id ?>;
 
-    function showToast(username, reward) {
-        const container = document.getElementById('toast-container');
-        const toast = document.createElement('div');
+        function showToast(username, reward) {
+            const container = document.getElementById('toast-container');
+            const toast = document.createElement('div');
 
-        toast.className =
-            'bg-white border-l-4 border-green-500 shadow-xl rounded-lg p-4 flex items-center gap-4 transform transition-all duration-300 translate-x-10 opacity-0 min-w-[300px]';
+            toast.className =
+                'bg-white border-l-4 border-green-500 shadow-xl rounded-lg p-4 flex items-center gap-4 transform transition-all duration-300 translate-x-10 opacity-0 min-w-[300px]';
 
-        toast.innerHTML = `
+            toast.innerHTML = `
                 <div class="text-green-500 text-3xl animate-bounce">🎁</div>
                 <div>
                     <h4 class="font-bold text-slate-800">${username} vừa trúng!</h4>
                     <p class="text-green-600 font-extrabold">+${Number(reward).toLocaleString('vi-VN')} VNĐ</p>
                 </div>
             `;
-        container.appendChild(toast);
+            container.appendChild(toast);
 
-        setTimeout(() => {
-            toast.classList.remove('translate-x-10', 'opacity-0');
-            toast.classList.add('translate-x-0', 'opacity-100');
-        }, 10);
+            setTimeout(() => {
+                toast.classList.remove('translate-x-10', 'opacity-0');
+                toast.classList.add('translate-x-0', 'opacity-100');
+            }, 10);
 
-        setTimeout(() => {
-            toast.classList.add('opacity-0', 'translate-x-10');
-            setTimeout(() => toast.remove(), 300);
-        }, 5000);
-    }
-
-    function prependHistory(item) {
-        const tbody = document.getElementById('history-table-body');
-
-        if (tbody.querySelector('td[colspan="3"]')) {
-            tbody.innerHTML = '';
+            setTimeout(() => {
+                toast.classList.add('opacity-0', 'translate-x-10');
+                setTimeout(() => toast.remove(), 300);
+            }, 5000);
         }
 
-        const tr = document.createElement('tr');
-        tr.className = 'transition bg-yellow-100';
+        function prependHistory(item) {
+            const tbody = document.getElementById('history-table-body');
 
-        const date = new Date(item.created_at);
-        const timeStr = ('0' + date.getHours()).slice(-2) + ':' + ('0' + date.getMinutes()).slice(-2) + ':' + ('0' +
-                date.getSeconds()).slice(-2) + ' ' +
-            ('0' + date.getDate()).slice(-2) + '/' + ('0' + (date.getMonth() + 1)).slice(-2);
+            if (tbody.querySelector('td[colspan="3"]')) {
+                tbody.innerHTML = '';
+            }
 
-        tr.innerHTML = `
+            const tr = document.createElement('tr');
+            tr.className = 'transition bg-yellow-100';
+
+            const date = new Date(item.created_at);
+            const timeStr = ('0' + date.getHours()).slice(-2) + ':' + ('0' + date.getMinutes()).slice(-2) + ':' + ('0' +
+                    date.getSeconds()).slice(-2) + ' ' +
+                ('0' + date.getDate()).slice(-2) + '/' + ('0' + (date.getMonth() + 1)).slice(-2);
+
+            tr.innerHTML = `
                 <td class="px-4 py-3 text-xs text-slate-500">${timeStr}</td>
                 <td class="px-4 py-3 font-medium text-blue-600">${item.username}</td>
                 <td class="px-4 py-3 font-bold text-green-600 text-right">+${Number(item.reward).toLocaleString('vi-VN')} đ</td>
             `;
 
-        tbody.prepend(tr);
+            tbody.prepend(tr);
 
-        setTimeout(() => {
-            tr.classList.remove('bg-yellow-100');
-            tr.classList.add('hover:bg-slate-50');
-        }, 2000);
-    }
-
-    setInterval(async () => {
-        try {
-            const res = await fetch(`get_new_spins.php?last_id=${lastId}`);
-            if (!res.ok) return;
-
-            const data = await res.json();
-
-            if (data && data.length > 0) {
-                data.forEach(item => {
-                    showToast(item.username, item.reward);
-                    prependHistory(item);
-                    if (parseInt(item.id) > lastId) {
-                        lastId = parseInt(item.id);
-                    }
-                });
-            }
-        } catch (err) {
-            console.error("Lỗi đồng bộ thông báo: ", err);
+            setTimeout(() => {
+                tr.classList.remove('bg-yellow-100');
+                tr.classList.add('hover:bg-slate-50');
+            }, 2000);
         }
-    }, 3000);
+
+        setInterval(async () => {
+            try {
+                const res = await fetch(`get_new_spins.php?last_id=${lastId}`);
+                if (!res.ok) return;
+
+                const data = await res.json();
+
+                if (data && data.length > 0) {
+                    data.forEach(item => {
+                        showToast(item.username, item.reward);
+                        prependHistory(item);
+                        if (parseInt(item.id) > lastId) {
+                            lastId = parseInt(item.id);
+                        }
+                    });
+                }
+            } catch (err) {
+                console.error("Lỗi đồng bộ thông báo: ", err);
+            }
+        }, 3000);
     </script>
 </body>
 

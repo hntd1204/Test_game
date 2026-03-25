@@ -35,7 +35,6 @@ if ($totalBet <= 0) {
 $pdo->beginTransaction();
 
 try {
-    // Khóa dòng user để kiểm tra số dư
     $stmt = $pdo->prepare("SELECT balance FROM users WHERE id = ? FOR UPDATE");
     $stmt->execute([$userId]);
     $user = $stmt->fetch();
@@ -46,41 +45,51 @@ try {
         exit;
     }
 
-    // Trừ tổng tiền cược
+    // Trừ tiền cược
     $newBalance = $user['balance'] - $totalBet;
 
-    // Lắc 3 viên xí ngầu
+    // Lắc xí ngầu
     $dice = [];
     for ($i = 0; $i < 3; $i++) {
         $dice[] = $valid_options[array_rand($valid_options)];
     }
 
-    // Tính tiền thắng cược
     $winnings = 0;
+    $winning_counts = [];
+
+    // Tính tiền thắng
     foreach ($bets as $key => $amount) {
         $amount = (int)$amount;
         if ($amount > 0) {
             $count = 0;
-            // Đếm số lần xuất hiện của linh vật
             foreach ($dice as $d) {
                 if ($d === $key) $count++;
             }
-            // Nếu trúng, trả lại tiền gốc + tiền thưởng (gốc x số lần xuất hiện)
             if ($count > 0) {
+                // Trả lại vốn + lãi (gốc x số lần ra)
                 $winnings += $amount + ($amount * $count);
+                $winning_counts[$key] = $count;
             }
         }
     }
 
+    // Cộng tiền thắng
     $newBalance += $winnings;
 
-    // Cập nhật số dư mới vào DB
+    // Cập nhật Database
     $updateStmt = $pdo->prepare("UPDATE users SET balance = ? WHERE id = ?");
     $updateStmt->execute([$newBalance, $userId]);
 
-    $pdo->commit();
-
+    // Tính Lãi/Lỗ thực tế
     $net_profit = $winnings - $totalBet;
+
+    // Lưu lịch sử cho Admin
+    $bet_details_json = json_encode($bets);
+    $dice_result_str = implode(',', $dice);
+    $insertHistory = $pdo->prepare("INSERT INTO baucua_history (user_id, bet_details, dice_result, total_bet, total_win, net_profit) VALUES (?, ?, ?, ?, ?, ?)");
+    $insertHistory->execute([$userId, $bet_details_json, $dice_result_str, $totalBet, $winnings, $net_profit]);
+
+    $pdo->commit();
 
     echo json_encode([
         'success' => true,
@@ -88,7 +97,8 @@ try {
         'winnings' => $winnings,
         'total_bet' => $totalBet,
         'net_profit' => $net_profit,
-        'new_balance' => $newBalance
+        'new_balance' => $newBalance,
+        'winning_counts' => $winning_counts
     ]);
 } catch (Exception $e) {
     $pdo->rollBack();
