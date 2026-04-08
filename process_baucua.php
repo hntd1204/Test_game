@@ -11,8 +11,19 @@ if (!isset($_SESSION['user_id']) || $_SESSION['role'] !== 'user') {
 $userId = $_SESSION['user_id'];
 $bets = isset($_POST['bets']) ? json_decode($_POST['bets'], true) : [];
 
+// Lọc loại bỏ những ô có tiền cược <= 0 (tránh trường hợp mảng gửi lên có ô tiền = 0)
+$bets = array_filter($bets, function ($amount) {
+    return (int)$amount > 0;
+});
+
 if (empty($bets)) {
     echo json_encode(['success' => false, 'error' => 'Vui lòng đặt cược!']);
+    exit;
+}
+
+// Kiểm tra: Không cho phép cược lớn hơn 3 ô
+if (count($bets) > 3) {
+    echo json_encode(['success' => false, 'error' => 'Bạn chỉ được cược tối đa 3 ô!']);
     exit;
 }
 
