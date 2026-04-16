@@ -15,20 +15,27 @@ if (isset($_SESSION['msg'])) {
 }
 
 try {
-    $pdo->exec("ALTER TABLE settings ADD COLUMN mines_add_money INT DEFAULT 10000");
+    $pdo->exec("ALTER TABLE settings ADD COLUMN baucua_multiplier FLOAT DEFAULT 1.0");
+    $pdo->exec("ALTER TABLE settings ADD COLUMN blackjack_multiplier FLOAT DEFAULT 2.0");
+    $pdo->exec("ALTER TABLE settings ADD COLUMN hilo_multiplier FLOAT DEFAULT 1.2");
+    $pdo->exec("ALTER TABLE settings ADD COLUMN mines_multiplier FLOAT DEFAULT 1.2");
 } catch (Exception $e) {
-    // Cột đã tồn tại thì bỏ qua
 }
 
-// 1. Xử lý lưu cài đặt hệ thống
+// 1. Xử lý lưu cài đặt hệ thống & minigame
 if (isset($_POST['update_settings'])) {
     $min = (int)$_POST['min_reward'];
     $max = (int)$_POST['max_reward'];
-    $m_bombs = (int)$_POST['mines_bombs'];
-    $m_add = (int)$_POST['mines_add_money']; // Tiền cộng mỗi ô
 
-    $stmt = $pdo->prepare("UPDATE settings SET min_reward = ?, max_reward = ?, mines_bombs = ?, mines_add_money = ? WHERE id = 1");
-    $stmt->execute([$min, $max, $m_bombs, $m_add]);
+    // Config Minigame
+    $m_bombs = (int)($_POST['mines_bombs'] ?? 3);
+    $bc_mul = (float)($_POST['baucua_multiplier'] ?? 1.0);
+    $bj_mul = (float)($_POST['blackjack_multiplier'] ?? 2.0);
+    $hilo_mul = (float)($_POST['hilo_multiplier'] ?? 1.2);
+    $mines_mul = (float)($_POST['mines_multiplier'] ?? 1.2);
+
+    $stmt = $pdo->prepare("UPDATE settings SET min_reward = ?, max_reward = ?, mines_bombs = ?, baucua_multiplier = ?, blackjack_multiplier = ?, hilo_multiplier = ?, mines_multiplier = ? WHERE id = 1");
+    $stmt->execute([$min, $max, $m_bombs, $bc_mul, $bj_mul, $hilo_mul, $mines_mul]);
 
     $_SESSION['msg'] = "✅ Đã cập nhật toàn bộ cài đặt Game & Hệ thống!";
     header("Location: admin.php");
@@ -180,6 +187,16 @@ $bj_histories = $pdo->query("SELECT b.*, u.username FROM blackjack_history b JOI
 $hilo_histories = $pdo->query("SELECT h.*, u.username FROM hilo_history h JOIN users u ON h.user_id = u.id ORDER BY h.id DESC LIMIT 50")->fetchAll();
 // Fetch lịch sử Dò Mìn
 $mines_histories = $pdo->query("SELECT m.*, u.username FROM mines_history m JOIN users u ON m.user_id = u.id ORDER BY m.id DESC LIMIT 50")->fetchAll();
+// --- THÊM PHẦN NÀY ĐỂ LẤY MAX ID CHO REALTIME ---
+$max_ids = [
+    'spin' => $pdo->query("SELECT MAX(id) FROM spin_history")->fetchColumn() ?: 0,
+    'baucua' => $pdo->query("SELECT MAX(id) FROM baucua_history")->fetchColumn() ?: 0,
+    'bj' => $pdo->query("SELECT MAX(id) FROM blackjack_history")->fetchColumn() ?: 0,
+    'hilo' => $pdo->query("SELECT MAX(id) FROM hilo_history")->fetchColumn() ?: 0,
+    'mines' => $pdo->query("SELECT MAX(id) FROM mines_history")->fetchColumn() ?: 0,
+    'wd' => $pdo->query("SELECT MAX(id) FROM withdrawals")->fetchColumn() ?: 0,
+    'gift' => $pdo->query("SELECT MAX(id) FROM user_gifts")->fetchColumn() ?: 0,
+];
 
 $bc_icons = ['nai' => '🦌', 'bau' => '🎃', 'ga' => '🐓', 'ca' => '🐟', 'cua' => '🦀', 'tom' => '🦐'];
 
@@ -398,7 +415,7 @@ $pending_gifts = $pdo->query("SELECT COUNT(*) FROM user_gifts WHERE status='pend
                                             <th class="px-3 py-2 text-right">Lãi/Lỗ User</th>
                                         </tr>
                                     </thead>
-                                    <tbody class="divide-y divide-slate-100">
+                                    <tbody id="baucua-tbody" class="divide-y divide-slate-100">
                                         <?php foreach ($bc_histories as $bc): ?>
                                             <tr class="hover:bg-slate-50">
                                                 <td class="px-3 py-2 font-bold text-blue-600">
@@ -436,7 +453,7 @@ $pending_gifts = $pdo->query("SELECT COUNT(*) FROM user_gifts WHERE status='pend
                                             <th class="px-3 py-2 text-right">KQ User</th>
                                         </tr>
                                     </thead>
-                                    <tbody class="divide-y divide-slate-100">
+                                    <tbody id="blackjack-tbody" class="divide-y divide-slate-100">
                                         <?php foreach ($bj_histories as $bj): ?>
                                             <tr class="hover:bg-slate-50">
                                                 <td class="px-3 py-2 text-blue-600 font-bold">
@@ -471,7 +488,7 @@ $pending_gifts = $pdo->query("SELECT COUNT(*) FROM user_gifts WHERE status='pend
                                             <th class="px-3 py-2 text-right">KQ User</th>
                                         </tr>
                                     </thead>
-                                    <tbody class="divide-y divide-slate-100">
+                                    <tbody id="hilo-tbody" class="divide-y divide-slate-100">
                                         <?php foreach ($hilo_histories as $hl): ?>
                                             <tr class="hover:bg-slate-50">
                                                 <td class="px-3 py-2 text-blue-600 font-bold">
@@ -507,7 +524,7 @@ $pending_gifts = $pdo->query("SELECT COUNT(*) FROM user_gifts WHERE status='pend
                                             <th class="px-3 py-2 text-right">KQ User</th>
                                         </tr>
                                     </thead>
-                                    <tbody class="divide-y divide-slate-100">
+                                    <tbody id="mines-tbody" class="divide-y divide-slate-100">
                                         <?php foreach ($mines_histories as $mh): ?>
                                             <tr class="hover:bg-slate-50">
                                                 <td class="px-3 py-2 text-blue-600 font-bold">
@@ -549,7 +566,7 @@ $pending_gifts = $pdo->query("SELECT COUNT(*) FROM user_gifts WHERE status='pend
                                     <th class="px-3 py-3 text-right">Hành động</th>
                                 </tr>
                             </thead>
-                            <tbody class="divide-y divide-slate-100">
+                            <tbody id="withdraw-tbody" class="divide-y divide-slate-100">
                                 <?php
                                 try {
                                     $wd_stmt = $pdo->query("SELECT w.*, u.username FROM withdrawals w JOIN users u ON w.user_id = u.id ORDER BY FIELD(w.status, 'pending', 'approved', 'rejected'), w.id DESC");
@@ -682,23 +699,49 @@ $pending_gifts = $pdo->query("SELECT COUNT(*) FROM user_gifts WHERE status='pend
                             <input type="hidden" name="max_reward" value="<?= $settings['max_reward'] ?>">
 
                             <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-                                <div
-                                    class="bg-slate-50 p-4 rounded-xl border border-slate-100 col-span-1 md:col-span-2">
-                                    <h3 class="font-bold text-sm text-slate-700 mb-3">💣 Dò Mìn (Mines)</h3>
-                                    <div class="grid grid-cols-2 gap-4">
+                                <div class="bg-slate-50 p-4 rounded-xl border border-slate-100">
+                                    <h3 class="font-bold text-sm text-slate-700 mb-3">🎲 Bầu Cua</h3>
+                                    <label class="block text-xs font-bold text-slate-500 mb-1">Hệ số nhân (Mặc định 1.0
+                                        = X1 vốn)</label>
+                                    <input type="number" step="0.1" name="baucua_multiplier"
+                                        value="<?= $settings['baucua_multiplier'] ?? 1.0 ?>" required
+                                        class="w-full px-3 py-2 border rounded-lg text-sm text-blue-600 font-bold">
+                                </div>
+
+                                <div class="bg-slate-50 p-4 rounded-xl border border-slate-100">
+                                    <h3 class="font-bold text-sm text-slate-700 mb-3">🃏 Xì Dách</h3>
+                                    <label class="block text-xs font-bold text-slate-500 mb-1">Hệ số trả thưởng (Mặc
+                                        định 2.0 = Trả cả gốc lẫn lãi)</label>
+                                    <input type="number" step="0.1" name="blackjack_multiplier"
+                                        value="<?= $settings['blackjack_multiplier'] ?? 2.0 ?>" required
+                                        class="w-full px-3 py-2 border rounded-lg text-sm text-emerald-600 font-bold">
+                                </div>
+
+                                <div class="bg-slate-50 p-4 rounded-xl border border-slate-100">
+                                    <h3 class="font-bold text-sm text-slate-700 mb-3">👆👇 Hi-Lo</h3>
+                                    <label class="block text-xs font-bold text-slate-500 mb-1">Hệ số nhân / lần lật đúng
+                                        (VD: 1.2 = +20% Pot)</label>
+                                    <input type="number" step="0.01" name="hilo_multiplier"
+                                        value="<?= $settings['hilo_multiplier'] ?? 1.2 ?>" required
+                                        class="w-full px-3 py-2 border rounded-lg text-sm text-indigo-600 font-bold">
+                                </div>
+
+                                <div class="bg-slate-50 p-4 rounded-xl border border-slate-100">
+                                    <h3 class="font-bold text-sm text-slate-700 mb-3">💣 Dò Mìn</h3>
+                                    <div class="grid grid-cols-2 gap-2">
                                         <div>
-                                            <label class="block text-xs font-bold text-slate-500 mb-1">Số lượng mìn mặc
-                                                định (1-24)</label>
+                                            <label class="block text-xs font-bold text-slate-500 mb-1">Số Mìn
+                                                (1-24)</label>
                                             <input type="number" name="mines_bombs"
                                                 value="<?= $settings['mines_bombs'] ?>" min="1" max="24" required
                                                 class="w-full px-3 py-2 border rounded-lg text-sm">
                                         </div>
                                         <div>
-                                            <label class="block text-xs font-bold text-slate-500 mb-1">Tiền được cộng
-                                                khi mở đúng ô (VNĐ)</label>
-                                            <input type="number" name="mines_add_money"
-                                                value="<?= $settings['mines_add_money'] ?? 10000 ?>" required
-                                                class="w-full px-3 py-2 border rounded-lg text-sm text-emerald-600 font-bold">
+                                            <label class="block text-xs font-bold text-slate-500 mb-1">Hệ số nhân /
+                                                bước</label>
+                                            <input type="number" step="0.01" name="mines_multiplier"
+                                                value="<?= $settings['mines_multiplier'] ?? 1.2 ?>" required
+                                                class="w-full px-3 py-2 border rounded-lg text-sm text-rose-600 font-bold">
                                         </div>
                                     </div>
                                 </div>
@@ -798,7 +841,7 @@ $pending_gifts = $pdo->query("SELECT COUNT(*) FROM user_gifts WHERE status='pend
                                         <th class="px-3 py-2 text-right">Xóa</th>
                                     </tr>
                                 </thead>
-                                <tbody class="divide-y divide-slate-100">
+                                <tbody id="gift-tbody" class="divide-y divide-slate-100">
                                     <?php try {
                                         $items_stmt = $pdo->query("SELECT * FROM shop_items ORDER BY cost ASC");
                                         while ($item = $items_stmt->fetch()): ?>
@@ -886,28 +929,21 @@ $pending_gifts = $pdo->query("SELECT COUNT(*) FROM user_gifts WHERE status='pend
     <script>
         // Logic chuyển Tab & Lưu trạng thái bằng LocalStorage
         function switchTab(tabId, btnElement) {
-            // 1. Hide all tabs
             document.querySelectorAll('.tab-content').forEach(tab => tab.classList.remove('active'));
-            // 2. Remove styling from all buttons
             document.querySelectorAll('.nav-btn').forEach(btn => {
                 btn.classList.remove('bg-blue-600', 'text-white', 'shadow-md');
                 if (btnElement.closest('aside')) btn.classList.add('text-slate-300'); // Desktop
                 if (btnElement.closest('.md\\:hidden')) btn.classList.add('bg-slate-800'); // Mobile
             });
-            // 3. Show target tab
             document.getElementById('tab-' + tabId).classList.add('active');
-
-            // 4. Highlight active buttons (Desktop + Mobile)
             document.querySelectorAll(`.nav-btn[onclick*="'${tabId}'"]`).forEach(activeBtn => {
                 activeBtn.classList.remove('text-slate-300', 'bg-slate-800');
                 activeBtn.classList.add('bg-blue-600', 'text-white', 'shadow-md');
             });
-
-            // 5. Save to LocalStorage
             localStorage.setItem('activeAdminTab', tabId);
         }
 
-        // Khôi phục Tab sau khi F5 hoặc Submit Form
+        // Khôi phục Tab sau khi F5
         document.addEventListener('DOMContentLoaded', () => {
             const savedTab = localStorage.getItem('activeAdminTab') || 'dashboard';
             const targetBtn = document.querySelector(`.nav-btn[onclick*="'${savedTab}'"]`);
@@ -918,16 +954,25 @@ $pending_gifts = $pdo->query("SELECT COUNT(*) FROM user_gifts WHERE status='pend
             }
         });
 
-        // Realtime Lịch Sử Vòng Quay (Giữ nguyên logic cũ)
-        let lastId = <?= $max_history_id ?>;
+        // --- HỆ THỐNG REAL-TIME ADMIN TOÀN DIỆN ---
+        let lastIds = <?= json_encode($max_ids) ?>;
+        const bcIcons = {
+            'nai': '🦌',
+            'bau': '🎃',
+            'ga': '🐓',
+            'ca': '🐟',
+            'cua': '🦀',
+            'tom': '🦐'
+        };
 
-        function showToast(username, reward) {
+        // Hàm tạo hiệu ứng Toast
+        function showAdminToast(title, desc, icon = '🔔', colorClass = 'border-blue-500 text-blue-500') {
             const container = document.getElementById('toast-container');
             const toast = document.createElement('div');
             toast.className =
-                'bg-white border-l-4 border-green-500 shadow-xl rounded-lg p-4 flex items-center gap-4 transform transition-all duration-300 translate-x-10 opacity-0 min-w-[300px]';
+                `bg-white border-l-4 ${colorClass} shadow-xl rounded-lg p-4 flex items-center gap-4 transform transition-all duration-300 translate-x-10 opacity-0 min-w-[300px] z-50`;
             toast.innerHTML =
-                `<div class="text-green-500 text-3xl animate-bounce">🎁</div><div><h4 class="font-bold text-slate-800">${username} vừa trúng!</h4><p class="text-green-600 font-extrabold">+${Number(reward).toLocaleString('vi-VN')} VNĐ</p></div>`;
+                `<div class="text-3xl animate-bounce">${icon}</div><div><h4 class="font-bold text-slate-800">${title}</h4><p class="text-sm font-bold text-slate-500">${desc}</p></div>`;
             container.appendChild(toast);
             setTimeout(() => {
                 toast.classList.remove('translate-x-10', 'opacity-0');
@@ -939,31 +984,138 @@ $pending_gifts = $pdo->query("SELECT COUNT(*) FROM user_gifts WHERE status='pend
             }, 5000);
         }
 
-        function prependHistory(item) {
-            const tbody = document.getElementById('history-table-body');
+        // Hàm chung chèn dữ liệu lên đầu bảng
+        function prependRow(tbodyId, htmlContent) {
+            const tbody = document.getElementById(tbodyId);
+            if (!tbody) return;
             const tr = document.createElement('tr');
-            tr.className = 'transition bg-emerald-50';
-            const d = new Date(item.created_at);
-            const timeStr = ('0' + d.getHours()).slice(-2) + ':' + ('0' + d.getMinutes()).slice(-2) + ':' + ('0' + d
-                .getSeconds()).slice(-2);
-            tr.innerHTML =
-                `<td class="py-3 text-xs text-slate-400">${timeStr}</td><td class="py-3 font-medium text-blue-600">${item.username}</td><td class="py-3 font-bold text-green-600 text-right">+${Number(item.reward).toLocaleString('vi-VN')}đ</td>`;
+            tr.className = 'transition bg-yellow-100'; // Đổi màu nền vàng nhạt khi mới chèn
+            tr.innerHTML = htmlContent;
             tbody.prepend(tr);
-            setTimeout(() => tr.classList.remove('bg-emerald-50'), 2000);
+            setTimeout(() => tr.classList.remove('bg-yellow-100', 'hover:bg-slate-50'), 2000);
         }
+
+        // Vòng lặp Real-time quét 3 giây/lần
         setInterval(async () => {
             try {
-                const res = await fetch(`get_new_spins.php?last_id=${lastId}`);
+                const params = new URLSearchParams({
+                    last_spin: lastIds.spin,
+                    last_baucua: lastIds.baucua,
+                    last_bj: lastIds.bj,
+                    last_hilo: lastIds.hilo,
+                    last_mines: lastIds.mines,
+                    last_wd: lastIds.wd,
+                    last_gift: lastIds.gift
+                });
+
+                const res = await fetch(`get_admin_realtime.php?${params}`);
                 if (!res.ok) return;
                 const data = await res.json();
-                if (data && data.length > 0) {
-                    data.forEach(item => {
-                        showToast(item.username, item.reward);
-                        prependHistory(item);
-                        if (parseInt(item.id) > lastId) lastId = parseInt(item.id);
+
+                // 1. Cập nhật Vòng Quay
+                if (data.spins && data.spins.length > 0) {
+                    data.spins.forEach(item => {
+                        let d = new Date(item.created_at);
+                        let timeStr = ('0' + d.getHours()).slice(-2) + ':' + ('0' + d.getMinutes())
+                            .slice(-2) + ':' + ('0' + d.getSeconds()).slice(-2);
+                        let html =
+                            `<td class="py-3 text-xs text-slate-400">${timeStr}</td><td class="py-3 font-medium text-blue-600">${item.username}</td><td class="py-3 font-bold text-green-600 text-right">+${Number(item.reward).toLocaleString('vi-VN')}đ</td>`;
+                        prependRow('history-table-body', html);
+                        if (parseInt(item.id) > lastIds.spin) lastIds.spin = parseInt(item.id);
                     });
                 }
-            } catch (err) {}
+
+                // 2. Cập nhật Bầu Cua
+                if (data.baucua && data.baucua.length > 0) {
+                    data.baucua.forEach(item => {
+                        let diceStr = item.dice_result.split(',').map(a => bcIcons[a]).join(' ');
+                        let color = item.net_profit > 0 ? 'text-green-500' : (item.net_profit < 0 ?
+                            'text-red-500' : 'text-slate-500');
+                        let sign = item.net_profit > 0 ? '+' : '';
+                        let html =
+                            `<td class="px-3 py-2 font-bold text-blue-600">${item.username}</td><td class="px-3 py-2 text-base">${diceStr}</td><td class="px-3 py-2 text-right font-bold ${color}">${sign}${Number(item.net_profit).toLocaleString('vi-VN')}đ</td>`;
+                        prependRow('baucua-tbody', html);
+                        if (parseInt(item.id) > lastIds.baucua) lastIds.baucua = parseInt(item.id);
+                    });
+                }
+
+                // 3. Cập nhật Xì Dách
+                if (data.blackjack && data.blackjack.length > 0) {
+                    data.blackjack.forEach(item => {
+                        let color = item.net_profit > 0 ? 'text-green-500' : (item.net_profit < 0 ?
+                            'text-red-500' : 'text-slate-500');
+                        let sign = item.net_profit > 0 ? '+' : '';
+                        let html =
+                            `<td class="px-3 py-2 text-blue-600 font-bold">${item.username}</td><td class="px-3 py-2 text-right font-medium">${Number(item.bet).toLocaleString('vi-VN')}đ</td><td class="px-3 py-2 text-right font-bold ${color}">${sign}${Number(item.net_profit).toLocaleString('vi-VN')}đ</td>`;
+                        prependRow('blackjack-tbody', html);
+                        if (parseInt(item.id) > lastIds.bj) lastIds.bj = parseInt(item.id);
+                    });
+                }
+
+                // 4. Cập nhật Hi-Lo
+                if (data.hilo && data.hilo.length > 0) {
+                    data.hilo.forEach(item => {
+                        let color = item.net_profit > 0 ? 'text-green-500' : (item.net_profit < 0 ?
+                            'text-red-500' : 'text-slate-500');
+                        let sign = item.net_profit > 0 ? '+' : '';
+                        let html =
+                            `<td class="px-3 py-2 text-blue-600 font-bold">${item.username}</td><td class="px-3 py-2 text-center text-indigo-500 font-bold">${item.streak}</td><td class="px-3 py-2 text-right font-bold ${color}">${sign}${Number(item.net_profit).toLocaleString('vi-VN')}đ</td>`;
+                        prependRow('hilo-tbody', html);
+                        if (parseInt(item.id) > lastIds.hilo) lastIds.hilo = parseInt(item.id);
+                    });
+                }
+
+                // 5. Cập nhật Dò Mìn
+                if (data.mines && data.mines.length > 0) {
+                    data.mines.forEach(item => {
+                        let color = item.net_profit > 0 ? 'text-green-500' : (item.net_profit < 0 ?
+                            'text-red-500' : 'text-slate-500');
+                        let sign = item.net_profit > 0 ? '+' : '';
+                        let html =
+                            `<td class="px-3 py-2 text-blue-600 font-bold">${item.username}</td><td class="px-3 py-2 text-center font-medium">${Number(item.bet).toLocaleString('vi-VN')}đ</td><td class="px-3 py-2 text-center text-slate-500 font-bold">${item.bombs}💣 / ${item.steps}👣</td><td class="px-3 py-2 text-right font-bold ${color}">${sign}${Number(item.net_profit).toLocaleString('vi-VN')}đ</td>`;
+                        prependRow('mines-tbody', html);
+                        if (parseInt(item.id) > lastIds.mines) lastIds.mines = parseInt(item.id);
+                    });
+                }
+
+                // 6. Cập nhật Rút Tiền Mới
+                if (data.withdrawals && data.withdrawals.length > 0) {
+                    data.withdrawals.forEach(w => {
+                        if (w.status === 'pending') {
+                            showAdminToast('Yêu cầu rút tiền!',
+                                `${w.username} muốn rút ${Number(w.amount).toLocaleString('vi-VN')}đ`,
+                                '💸', 'border-rose-500 text-rose-500');
+                            let html =
+                                `<td class="px-3 py-3 font-bold text-slate-800">${w.username}</td><td class="px-3 py-3 font-bold text-blue-600">${Number(w.amount).toLocaleString('vi-VN')}đ</td><td class="px-3 py-3 text-right"><span class="text-xs text-rose-500 font-bold animate-pulse">Vừa tạo (F5 để duyệt)</span></td>`;
+                            prependRow('withdraw-tbody', html);
+                        }
+                        if (parseInt(w.id) > lastIds.wd) lastIds.wd = parseInt(w.id);
+                    });
+                }
+
+                // 7. Cập nhật Đổi Quà Mới
+                if (data.gifts && data.gifts.length > 0) {
+                    data.gifts.forEach(g => {
+                        if (g.status === 'pending') {
+                            showAdminToast('Yêu cầu đổi quà!', `${g.username} muốn đổi ${g.gift_name}`,
+                                '🎁', 'border-amber-500 text-amber-500');
+                            let html =
+                                `<td class="px-3 py-3 font-bold text-slate-800">${g.username}</td><td class="px-3 py-3 font-bold text-emerald-600">${g.gift_name}</td><td class="px-3 py-3 text-right"><span class="text-xs text-amber-500 font-bold animate-pulse">Vừa tạo (F5 để duyệt)</span></td>`;
+                            prependRow('gift-tbody', html);
+                        }
+                        if (parseInt(g.id) > lastIds.gift) lastIds.gift = parseInt(g.id);
+                    });
+                }
+
+                // 8. Cập nhật Badge đỏ trên Menu
+                document.querySelectorAll('.badge-withdraw').forEach(el => el.innerText = data
+                    .pending_withdraws > 0 ? data.pending_withdraws : '');
+                document.querySelectorAll('.badge-gift').forEach(el => el.innerText = data.pending_gifts > 0 ?
+                    data.pending_gifts : '');
+
+            } catch (err) {
+                console.error("Realtime Admin Error:", err);
+            }
         }, 3000);
     </script>
 </body>

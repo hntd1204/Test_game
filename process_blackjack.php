@@ -11,6 +11,15 @@ if (!isset($_SESSION['user_id']) || $_SESSION['role'] !== 'user') {
 $userId = $_SESSION['user_id'];
 $action = $_POST['action'] ?? '';
 
+// --- LẤY HỆ SỐ NHÂN TỪ BẢNG SETTINGS ---
+try {
+    $settingsStmt = $pdo->query("SELECT blackjack_multiplier FROM settings WHERE id = 1");
+    $settings = $settingsStmt->fetch();
+    $bj_mul = (float)($settings['blackjack_multiplier'] ?? 2.0);
+} catch (Exception $e) {
+    $bj_mul = 2.0; // Dự phòng nếu chưa có cột
+}
+
 // Hàm tạo bộ bài
 function getDeck()
 {
@@ -148,7 +157,7 @@ if ($action === 'deal') {
                 $winnings = $bet;
                 $message = "Hòa! Cả hai đều có Xì dách/Xì bàng.";
             } else {
-                $winnings = $bet * 2; // Thắng gấp đôi
+                $winnings = (int)round($bet * $bj_mul); // Thắng theo hệ số nhân Admin
                 $message = "🎉 THẮNG! Bạn có " . ($pType == 'xibang' ? 'Xì Bàng' : 'Xì Dách');
             }
             $isEnd = true;
@@ -217,7 +226,7 @@ if ($action === 'hit') {
         $message = "💥 QUẮC! Bạn vượt quá 21 điểm.";
     } elseif (count($bj['player']) == 5) {
         $isEnd = true;
-        $winnings = $bj['bet'] * 2;
+        $winnings = (int)round($bj['bet'] * $bj_mul); // Ngũ linh thắng theo hệ số
         $message = "🌟 NGŨ LINH! Bạn thắng tuyệt đối.";
     }
 
@@ -282,12 +291,12 @@ if ($action === 'stand') {
     $message = '';
 
     if ($dealerType == 'quac') {
-        $winnings = $bj['bet'] * 2;
+        $winnings = (int)round($bj['bet'] * $bj_mul); // Thắng theo hệ số
         $message = "Nhà cái Quắc! BẠN THẮNG 🎉";
     } elseif ($dealerType == 'ngulinh') {
         $message = "Nhà cái Ngũ Linh! BẠN THUA 💥";
     } elseif ($playerScore > $dealerScore) {
-        $winnings = $bj['bet'] * 2;
+        $winnings = (int)round($bj['bet'] * $bj_mul); // Thắng theo hệ số
         $message = "BẠN THẮNG 🎉 (" . $playerScore . " vs " . $dealerScore . ")";
     } elseif ($playerScore < $dealerScore) {
         $message = "BẠN THUA 💥 (" . $playerScore . " vs " . $dealerScore . ")";

@@ -12,8 +12,9 @@ $userId = $_SESSION['user_id'];
 $action = $_POST['action'] ?? '';
 
 // [QUAN TRỌNG] Đặt lệnh ALTER TABLE bên ngoài Transaction để chống lỗi Implicit Commit của MySQL
+// Đã chuyển sang thêm cột mines_multiplier thay vì mines_add_money
 try {
-    $pdo->exec("ALTER TABLE settings ADD COLUMN mines_add_money INT DEFAULT 10000");
+    $pdo->exec("ALTER TABLE settings ADD COLUMN mines_multiplier FLOAT DEFAULT 1.2");
 } catch (Exception $e) {
     // Bỏ qua nếu cột đã tồn tại
 }
@@ -41,10 +42,10 @@ if ($action === 'start') {
         $newBalance = $user['balance'] - $bet;
         $pdo->prepare("UPDATE users SET balance = ? WHERE id = ?")->execute([$newBalance, $userId]);
 
-        // Lấy cài đặt mìn và số tiền cộng từ DB
-        $settings = $pdo->query("SELECT mines_bombs, mines_add_money FROM settings WHERE id = 1")->fetch();
+        // Lấy cài đặt mìn và hệ số nhân từ DB
+        $settings = $pdo->query("SELECT mines_bombs, mines_multiplier FROM settings WHERE id = 1")->fetch();
         $bombs = (int)$settings['mines_bombs'];
-        $add_money = (int)($settings['mines_add_money'] ?? 10000);
+        $mines_mul = (float)($settings['mines_multiplier'] ?? 1.2);
 
         if ($bombs < 1 || $bombs > 24) $bombs = 3;
 
@@ -60,7 +61,7 @@ if ($action === 'start') {
             'pot' => $bet, // Quỹ ban đầu bằng tiền cược
             'board' => $board,
             'bombs' => $bombs,
-            'add_money' => $add_money, // Lưu số tiền được phép cộng
+            'mines_mul' => $mines_mul, // Lưu hệ số nhân vào phiên chơi
             'step' => 0,
             'status' => 'playing'
         ];
@@ -90,9 +91,9 @@ if ($action === 'open') {
         unset($_SESSION['mines']);
         echo json_encode(['success' => true, 'is_bomb' => true, 'board' => $mines['board']]);
     } else {
-        // An toàn -> Cộng số tiền admin cài đặt vào Pot
+        // An toàn -> Nhân quỹ thưởng (pot) với hệ số và làm tròn đến hàng ngàn
         $mines['step']++;
-        $mines['pot'] += $mines['add_money']; // Cộng tiền cố định
+        $mines['pot'] = (int)round(($mines['pot'] * $mines['mines_mul']) / 1000) * 1000;
 
         $_SESSION['mines'] = $mines;
 

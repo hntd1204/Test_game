@@ -12,6 +12,15 @@ if (!isset($_SESSION['user_id']) || $_SESSION['role'] !== 'user') {
 $userId = $_SESSION['user_id'];
 $action = $_POST['action'] ?? '';
 
+// --- LẤY HỆ SỐ NHÂN TỪ BẢNG SETTINGS ---
+try {
+    $settingsStmt = $pdo->query("SELECT hilo_multiplier FROM settings WHERE id = 1");
+    $settings = $settingsStmt->fetch();
+    $hilo_mul = (float)($settings['hilo_multiplier'] ?? 1.2);
+} catch (Exception $e) {
+    $hilo_mul = 1.2; // Dự phòng nếu chưa có cột
+}
+
 // Hàm tạo bộ bài cho Hi-Lo
 function getDeckHilo()
 {
@@ -109,7 +118,7 @@ if ($action === 'start') {
 }
 
 // ==========================================
-// 2. XỬ LÝ ĐOÁN BÀI (THAY ĐỔI CỘNG 10K)
+// 2. XỬ LÝ ĐOÁN BÀI
 // ==========================================
 if ($action === 'guess') {
     if (!isset($_SESSION['hilo']) || $_SESSION['hilo']['status'] !== 'playing') {
@@ -138,8 +147,9 @@ if ($action === 'guess') {
     if ($isWin) {
         $hilo['streak']++;
 
-        // LOGIC MỚI: Mỗi lần đoán đúng chỉ cộng thêm 10.000 VNĐ
-        $hilo['pot'] += 10000;
+        // LOGIC MỚI: Nhân POT lên theo hệ số, làm tròn đến hàng ngàn
+        $hilo['pot'] = (int)round(($hilo['pot'] * $hilo_mul) / 1000) * 1000;
+        $profitDisplay = number_format($hilo['pot']);
 
         $_SESSION['hilo'] = $hilo;
         echo json_encode([
@@ -147,7 +157,7 @@ if ($action === 'guess') {
             'is_end' => false,
             'card' => $nextCard,
             'pot' => $hilo['pot'],
-            'message' => 'Chính xác! 🎉 (+10k)'
+            'message' => 'Chính xác! 🎉 (Pot: ' . $profitDisplay . 'đ)'
         ]);
     } elseif ($isTie) {
         $_SESSION['hilo'] = $hilo;

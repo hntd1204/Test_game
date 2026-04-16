@@ -59,6 +59,11 @@ try {
     // Trừ tiền cược
     $newBalance = $user['balance'] - $totalBet;
 
+    // --- LẤY HỆ SỐ NHÂN TỪ BẢNG SETTINGS ---
+    $settingsStmt = $pdo->query("SELECT baucua_multiplier FROM settings WHERE id = 1");
+    $settings = $settingsStmt->fetch();
+    $baucua_mul = (float)($settings['baucua_multiplier'] ?? 1.0);
+
     // Lắc xí ngầu
     $dice = [];
     for ($i = 0; $i < 3; $i++) {
@@ -77,8 +82,9 @@ try {
                 if ($d === $key) $count++;
             }
             if ($count > 0) {
-                // Trả lại vốn + lãi (gốc x số lần ra)
-                $winnings += $amount + ($amount * $count);
+                // Lợi nhuận = Vốn cược * Số lần xí ngầu ra * Hệ số nhân (Admin cài đặt)
+                // Tiền thắng = Vốn cược (hoàn gốc) + Lợi nhuận
+                $winnings += $amount + ($amount * $count * $baucua_mul);
                 $winning_counts[$key] = $count;
             }
         }
