@@ -7,10 +7,23 @@ if (!isset($_SESSION['user_id']) || $_SESSION['role'] !== 'user') {
     exit;
 }
 
+// Lấy thông tin số dư và tiến độ nhiệm vụ hiện tại của user
 $stmt = $pdo->prepare("SELECT balance, hilo_count FROM users WHERE id = ?");
 $stmt->execute([$_SESSION['user_id']]);
 $user = $stmt->fetch();
 
+// Lấy cấu hình nhiệm vụ Hi-Lo từ hệ thống
+try {
+    $missionStmt = $pdo->query("SELECT target_count, reward_spins FROM mission_settings WHERE mission_key = 'hilo_count'");
+    $mission = $missionStmt->fetch();
+    if (!$mission) {
+        $mission = ['target_count' => 5, 'reward_spins' => 1]; // Mặc định nếu admin chưa cấu hình
+    }
+} catch (Exception $e) {
+    $mission = ['target_count' => 5, 'reward_spins' => 1];
+}
+
+// Lấy lịch sử 5 ván gần nhất
 $historyStmt = $pdo->prepare("SELECT * FROM hilo_history WHERE user_id = ? ORDER BY id DESC LIMIT 5");
 $historyStmt->execute([$_SESSION['user_id']]);
 $myHistories = $historyStmt->fetchAll();
@@ -51,6 +64,13 @@ $myHistories = $historyStmt->fetchAll();
         class="bg-indigo-900/80 backdrop-blur-md px-4 py-3 flex justify-between items-center sticky top-0 z-50 shadow-md border-b border-indigo-800">
         <h1 class="text-xl font-bold text-white uppercase tracking-wider">Lật Bài Hi-Lo</h1>
         <div class="flex items-center gap-3">
+            <div
+                class="hidden sm:flex bg-indigo-800 border border-indigo-500/30 px-3 py-1 rounded-full text-[10px] items-center gap-1">
+                <span class="text-indigo-300">Nhiệm vụ:</span>
+                <span id="missionProgress"
+                    class="font-bold text-white"><?= (int)$user['hilo_count'] ?>/<?= $mission['target_count'] ?></span>
+            </div>
+
             <div class="bg-indigo-800 border border-indigo-500/30 px-4 py-1.5 rounded-full flex items-center gap-2">
                 <span class="text-amber-400 text-sm">💰</span>
                 <span class="font-bold text-amber-400 tracking-wide"
@@ -178,6 +198,17 @@ $myHistories = $historyStmt->fetchAll();
                 document.getElementById('cardArea').innerHTML = renderCard(data.card);
                 document.getElementById('resultMsg').innerHTML = "<span class='text-white'>Đoán lá tiếp theo!</span>";
 
+                // Cập nhật tiến độ nhiệm vụ từ server
+                if (data.mission) {
+                    const progressSpan = document.getElementById('missionProgress');
+                    if (data.mission.current !== undefined && progressSpan) {
+                        progressSpan.innerText = `${data.mission.current}/${data.mission.target}`;
+                    }
+                    if (data.mission.rewarded) {
+                        alert("🎁 Chúc mừng! Bạn đã hoàn thành nhiệm vụ Lật Bài và nhận được lượt quay miễn phí!");
+                    }
+                }
+
                 document.getElementById('startBtn').classList.add('hidden');
                 document.getElementById('betArea').classList.add('hidden');
                 document.getElementById('actionBtns').classList.remove('hidden');
@@ -204,14 +235,12 @@ $myHistories = $historyStmt->fetchAll();
                 document.getElementById('cardArea').innerHTML = renderCard(data.card);
 
                 if (data.is_end) {
-                    // Thua
                     sounds.lose.play();
                     document.getElementById('currentPot').innerText = "0";
                     document.getElementById('resultMsg').innerHTML =
                         `<span class='text-rose-500'>${data.message}</span>`;
                     resetGameUI();
                 } else {
-                    // Thắng hoặc Hòa
                     if (data.message.includes('Chính xác')) sounds.win.play();
                     document.getElementById('currentPot').innerText = data.pot.toLocaleString();
                     document.getElementById('resultMsg').innerHTML =
@@ -253,6 +282,7 @@ $myHistories = $historyStmt->fetchAll();
                 document.getElementById('actionBtns').classList.add('hidden');
                 document.getElementById('startBtn').classList.remove('hidden');
                 document.getElementById('betArea').classList.remove('hidden');
+                document.getElementById('currentPot').innerText = "0";
             }, 2000);
         }
     </script>

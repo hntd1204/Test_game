@@ -12,7 +12,7 @@ if (!isset($_SESSION['user_id']) || $_SESSION['role'] !== 'user') {
 $userId = $_SESSION['user_id'];
 $action = $_POST['action'] ?? '';
 
-// Hàm tạo bộ bài cho Hi-Lo (Kèm giá trị từ 2 đến 14, A là cao nhất)
+// Hàm tạo bộ bài cho Hi-Lo
 function getDeckHilo()
 {
     $suits = ['♠', '♣', '♦', '♥'];
@@ -36,7 +36,7 @@ function saveHistory($pdo, $userId, $bet, $win, $streak)
 }
 
 // ==========================================
-// 1. XỬ LÝ BẮT ĐẦU VÁN CHƠI
+// 1. XỬ LÝ BẮT ĐẦU VÁN CHƠI & NHIỆM VỤ
 // ==========================================
 if ($action === 'start') {
     $bet = (int)($_POST['bet'] ?? 0);
@@ -57,9 +57,28 @@ if ($action === 'start') {
             exit;
         }
 
-        // Trừ tiền cược và tăng tiến độ nhiệm vụ (hilo_count)
+        // Trừ tiền cược và tăng tiến độ nhiệm vụ
         $newBalance = $user['balance'] - $bet;
         $pdo->prepare("UPDATE users SET balance = ?, hilo_count = hilo_count + 1 WHERE id = ?")->execute([$newBalance, $userId]);
+
+        // --- XỬ LÝ KIỂM TRA NHIỆM VỤ LẬT BÀI ---
+        $mission_info = ['rewarded' => false];
+        $currentCount = $pdo->query("SELECT hilo_count FROM users WHERE id = $userId")->fetchColumn();
+        $missions = $pdo->query("SELECT * FROM mission_settings WHERE mission_key = 'hilo_count'")->fetchAll();
+
+        foreach ($missions as $m) {
+            if ($currentCount == $m['target_count']) {
+                $pdo->prepare("UPDATE users SET spins_available = spins_available + ? WHERE id = ?")
+                    ->execute([$m['reward_spins'], $userId]);
+                $mission_info = ['rewarded' => true, 'current' => $currentCount, 'target' => $m['target_count']];
+                break;
+            }
+        }
+        if (!$mission_info['rewarded'] && count($missions) > 0) {
+            $mission_info['current'] = $currentCount;
+            $mission_info['target'] = $missions[0]['target_count'];
+        }
+
         $pdo->commit();
 
         $deck = getDeckHilo();
@@ -71,15 +90,16 @@ if ($action === 'start') {
             'deck' => $deck,
             'current_card' => $firstCard,
             'bet' => $bet,
-            'pot' => $bet, // Số tiền đang tích lũy ban đầu bằng đúng tiền cược
-            'streak' => 0  // Chuỗi đoán đúng
+            'pot' => $bet,
+            'streak' => 0
         ];
 
         echo json_encode([
             'success' => true,
             'card' => $firstCard,
             'pot' => $bet,
-            'balance' => $newBalance
+            'balance' => $newBalance,
+            'mission' => $mission_info // Trả về UI để hiển thị
         ]);
     } catch (Exception $e) {
         $pdo->rollBack();
@@ -89,7 +109,7 @@ if ($action === 'start') {
 }
 
 // ==========================================
-// 2. XỬ LÝ ĐOÁN BÀI (CAO HƠN / THẤP HƠN)
+// 2. XỬ LÝ ĐOÁN BÀI (THAY ĐỔI CỘNG 10K)
 // ==========================================
 if ($action === 'guess') {
     if (!isset($_SESSION['hilo']) || $_SESSION['hilo']['status'] !== 'playing') {
@@ -97,43 +117,29 @@ if ($action === 'guess') {
         exit;
     }
 
-    $choice = $_POST['choice']; // 'hi' hoặc 'lo'
+    $choice = $_POST['choice'];
     $hilo = $_SESSION['hilo'];
     $currentCard = $hilo['current_card'];
 
-    // Nếu bộ bài hết (trường hợp hiếm), tạo bộ bài mới
     if (count($hilo['deck']) == 0) {
         $hilo['deck'] = getDeckHilo();
     }
 
     $nextCard = array_pop($hilo['deck']);
-
     $isWin = false;
     $isTie = false;
 
-    // So sánh giá trị lá bài mới với lá bài cũ
     if ($nextCard['val'] > $currentCard['val'] && $choice === 'hi') $isWin = true;
     elseif ($nextCard['val'] < $currentCard['val'] && $choice === 'lo') $isWin = true;
     elseif ($nextCard['val'] == $currentCard['val']) $isTie = true;
 
-    // Cập nhật lá bài hiện tại trên bàn
     $hilo['current_card'] = $nextCard;
 
     if ($isWin) {
         $hilo['streak']++;
 
-        // Truy xuất cấu hình 1 mức tỉ lệ nhân từ Database (Do Admin cài đặt)
-        try {
-            $setStmt = $pdo->query("SELECT hilo_multi FROM settings WHERE id = 1");
-            $settings = $setStmt->fetch();
-            // Nếu admin chưa set, lấy mặc định là 1.5
-            $multiplier = (isset($settings['hilo_multi']) && $settings['hilo_multi'] > 0) ? (float)$settings['hilo_multi'] : 1.5;
-        } catch (Exception $e) {
-            $multiplier = 1.5; // Đề phòng lỗi DB chưa có cột
-        }
-
-        // Tính tiền mới = Tiền tích lũy hiện tại x Hệ số nhân thưởng
-        $hilo['pot'] = floor($hilo['pot'] * $multiplier);
+        // LOGIC MỚI: Mỗi lần đoán đúng chỉ cộng thêm 10.000 VNĐ
+        $hilo['pot'] += 10000;
 
         $_SESSION['hilo'] = $hilo;
         echo json_encode([
@@ -141,10 +147,9 @@ if ($action === 'guess') {
             'is_end' => false,
             'card' => $nextCard,
             'pot' => $hilo['pot'],
-            'message' => 'Chính xác! 🎉'
+            'message' => 'Chính xác! 🎉 (+10k)'
         ]);
     } elseif ($isTie) {
-        // Rút trúng lá bài bằng điểm -> Cho Hòa, giữ nguyên tiền, cho rút lá tiếp
         $_SESSION['hilo'] = $hilo;
         echo json_encode([
             'success' => true,
@@ -154,7 +159,6 @@ if ($action === 'guess') {
             'message' => 'Hòa! Rút tiếp lá nữa 🤝'
         ]);
     } else {
-        // Đoán Sai -> Thua mất trắng
         saveHistory($pdo, $userId, $hilo['bet'], 0, $hilo['streak']);
         unset($_SESSION['hilo']);
         echo json_encode([
@@ -178,8 +182,6 @@ if ($action === 'cashout') {
     }
 
     $hilo = $_SESSION['hilo'];
-
-    // Nếu chưa đoán đúng lần nào mà bấm Dừng thì chỉ hoàn trả lại tiền cược (Hòa vốn)
     $winnings = $hilo['streak'] > 0 ? $hilo['pot'] : $hilo['bet'];
 
     $pdo->beginTransaction();
@@ -188,14 +190,11 @@ if ($action === 'cashout') {
         $stmt->execute([$userId]);
         $user = $stmt->fetch();
 
-        // Cộng tiền vào tài khoản
         $newBalance = $user['balance'] + $winnings;
         $pdo->prepare("UPDATE users SET balance = ? WHERE id = ?")->execute([$newBalance, $userId]);
 
         saveHistory($pdo, $userId, $hilo['bet'], $winnings, $hilo['streak']);
         $pdo->commit();
-
-        // Hủy ván chơi
         unset($_SESSION['hilo']);
 
         echo json_encode([
@@ -210,5 +209,4 @@ if ($action === 'cashout') {
     exit;
 }
 
-// Nếu action không hợp lệ
 echo json_encode(['success' => false, 'error' => 'Yêu cầu không hợp lệ']);
