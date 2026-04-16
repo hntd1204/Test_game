@@ -18,9 +18,11 @@ if (isset($_SESSION['msg'])) {
 if (isset($_POST['update_settings'])) {
     $min = $_POST['min_reward'];
     $max = $_POST['max_reward'];
-    $stmt = $pdo->prepare("UPDATE settings SET min_reward = ?, max_reward = ? WHERE id = 1");
-    $stmt->execute([$min, $max]);
-    $_SESSION['msg'] = "✅ Đã cập nhật cài đặt hệ thống!";
+    $m_bombs = (int)$_POST['mines_bombs'];
+
+    $stmt = $pdo->prepare("UPDATE settings SET min_reward = ?, max_reward = ?, mines_bombs = ? WHERE id = 1");
+    $stmt->execute([$min, $max, $m_bombs]);
+    $_SESSION['msg'] = "✅ Đã cập nhật toàn bộ cài đặt Game & Hệ thống!";
     header("Location: admin.php");
     exit;
 }
@@ -606,6 +608,27 @@ $pending_gifts = $pdo->query("SELECT COUNT(*) FROM user_gifts WHERE status='pend
                             <button type="submit" name="update_settings"
                                 class="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-3 rounded-xl transition shadow-md">Lưu
                                 Cài Đặt Hệ Thống</button>
+                        </form>
+                    </div>
+
+                    <div class="bg-white p-6 rounded-2xl shadow-sm border border-slate-200 mt-6">
+                        <h2 class="text-lg font-bold text-slate-800 mb-4 border-b pb-2">🎮 Cài đặt Minigame </h2>
+                        <form method="POST" class="space-y-4">
+                            <input type="hidden" name="min_reward" value="<?= $settings['min_reward'] ?>">
+                            <input type="hidden" name="max_reward" value="<?= $settings['max_reward'] ?>">
+
+                            <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                <div class="bg-slate-50 p-4 rounded-xl border border-slate-100">
+                                    <h3 class="font-bold text-sm text-slate-700 mb-2">💣 Dò Mìn (Mines)</h3>
+                                    <label class="block text-xs font-bold text-slate-500 mb-1">Số lượng mìn mặc định
+                                        (1-24)</label>
+                                    <input type="number" name="mines_bombs" value="<?= $settings['mines_bombs'] ?>"
+                                        min="1" max="24" required class="w-full px-3 py-2 border rounded-lg text-sm">
+                                </div>
+                            </div>
+                            <button type="submit" name="update_settings"
+                                class="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-3 rounded-xl transition shadow-md">Lưu
+                                Cấu Hình Minigame</button>
                         </form>
                     </div>
 

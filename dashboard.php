@@ -347,6 +347,20 @@ try {
                         class="block w-full text-center bg-indigo-50 hover:bg-indigo-600 hover:text-white text-indigo-700 font-bold py-3.5 rounded-xl transition-colors border border-indigo-100 hover:border-indigo-600">Đoán
                         Ngay</a>
                 </div>
+
+                <div
+                    class="bg-white rounded-[2rem] p-6 shadow-lg border border-slate-100 hover:shadow-2xl hover:-translate-y-2 transition-all duration-300 flex flex-col h-full group">
+                    <div
+                        class="w-16 h-16 rounded-2xl bg-gradient-to-br from-slate-700 to-slate-900 flex items-center justify-center text-white text-3xl mb-5 shadow-lg shadow-slate-500/30 group-hover:rotate-12 transition-transform">
+                        <i class="fa-solid fa-bomb"></i>
+                    </div>
+                    <h4 class="text-xl font-black text-slate-800 mb-2">Truy Tìm Kho Báu</h4>
+                    <p class="text-sm text-slate-500 font-medium mb-8 flex-1">Lật mở từng ô để nhận thưởng. Hãy cẩn thận
+                        với những quả bom nổ chậm ẩn giấu bên dưới!</p>
+                    <a href="mines.php"
+                        class="block w-full text-center bg-slate-50 hover:bg-slate-800 hover:text-white text-slate-700 font-bold py-3.5 rounded-xl transition-colors border border-slate-200 hover:border-slate-800">Dò
+                        Mìn</a>
+                </div>
             </div>
         </div>
 
