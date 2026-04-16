@@ -161,15 +161,26 @@ $max_history_id = count($histories) > 0 ? $histories[0]['id'] : 0;
 // Tính toán lợi nhuận
 $bc_stats = $pdo->query("SELECT SUM(total_bet) as sum_bet, SUM(total_win) as sum_win FROM baucua_history")->fetch();
 $bc_profit = ($bc_stats['sum_bet'] ?? 0) - ($bc_stats['sum_win'] ?? 0);
+
 $bj_stats = $pdo->query("SELECT SUM(bet) as sum_bet, SUM(win) as sum_win FROM blackjack_history")->fetch();
 $bj_profit = ($bj_stats['sum_bet'] ?? 0) - ($bj_stats['sum_win'] ?? 0);
+
 $hilo_stats = $pdo->query("SELECT SUM(bet) as sum_bet, SUM(win) as sum_win FROM hilo_history")->fetch();
 $hilo_profit = ($hilo_stats['sum_bet'] ?? 0) - ($hilo_stats['sum_win'] ?? 0);
-$total_profit = $bc_profit + $bj_profit + $hilo_profit;
+
+// Thêm lợi nhuận Dò Mìn
+$mines_stats = $pdo->query("SELECT SUM(bet) as sum_bet, SUM(win) as sum_win FROM mines_history")->fetch();
+$mines_profit = ($mines_stats['sum_bet'] ?? 0) - ($mines_stats['sum_win'] ?? 0);
+
+// Cập nhật tổng tiền lãi
+$total_profit = $bc_profit + $bj_profit + $hilo_profit + $mines_profit;
 
 $bc_histories = $pdo->query("SELECT b.*, u.username FROM baucua_history b JOIN users u ON b.user_id = u.id ORDER BY b.id DESC LIMIT 50")->fetchAll();
 $bj_histories = $pdo->query("SELECT b.*, u.username FROM blackjack_history b JOIN users u ON b.user_id = u.id ORDER BY b.id DESC LIMIT 50")->fetchAll();
 $hilo_histories = $pdo->query("SELECT h.*, u.username FROM hilo_history h JOIN users u ON h.user_id = u.id ORDER BY h.id DESC LIMIT 50")->fetchAll();
+// Fetch lịch sử Dò Mìn
+$mines_histories = $pdo->query("SELECT m.*, u.username FROM mines_history m JOIN users u ON m.user_id = u.id ORDER BY m.id DESC LIMIT 50")->fetchAll();
+
 $bc_icons = ['nai' => '🦌', 'bau' => '🎃', 'ga' => '🐓', 'ca' => '🐟', 'cua' => '🦀', 'tom' => '🦐'];
 
 // Thống kê Quick Stats
@@ -367,56 +378,58 @@ $pending_gifts = $pdo->query("SELECT COUNT(*) FROM user_gifts WHERE status='pend
                     </div>
                 </div>
 
-                <div class="lg:col-span-2 space-y-6">
-                    <div class="bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden">
-                        <div class="p-4 bg-slate-50 border-b border-slate-200 flex justify-between items-center">
-                            <h2 class="font-bold text-slate-800">🎲 Lịch Sử Bầu Cua</h2>
-                            <span
-                                class="text-sm font-bold <?= $bc_profit >= 0 ? 'text-green-600' : 'text-red-500' ?>">Lãi:
-                                <?= number_format($bc_profit) ?>đ</span>
-                        </div>
-                        <div class="overflow-x-auto max-h-[250px] custom-scrollbar">
-                            <table class="w-full text-left text-sm text-slate-600 whitespace-nowrap">
-                                <thead class="bg-slate-50 text-slate-500 sticky top-0 text-xs">
-                                    <tr>
-                                        <th class="px-4 py-2">Giờ</th>
-                                        <th class="px-4 py-2">User</th>
-                                        <th class="px-4 py-2">KQ</th>
-                                        <th class="px-4 py-2 text-right">Lãi/Lỗ User</th>
-                                    </tr>
-                                </thead>
-                                <tbody class="divide-y divide-slate-100">
-                                    <?php foreach ($bc_histories as $bc): ?>
-                                        <tr class="hover:bg-slate-50">
-                                            <td class="px-4 py-2 text-xs"><?= date('H:i', strtotime($bc['created_at'])) ?>
-                                            </td>
-                                            <td class="px-4 py-2 font-bold text-blue-600">
-                                                <?= htmlspecialchars($bc['username']) ?></td>
-                                            <td class="px-4 py-2 text-lg"><?= implode(' ', array_map(function ($a) use ($bc_icons) {
-                                                                                return $bc_icons[$a];
-                                                                            }, explode(',', $bc['dice_result']))) ?>
-                                            </td>
-                                            <td
-                                                class="px-4 py-2 text-right font-bold <?= $bc['net_profit'] > 0 ? 'text-green-500' : ($bc['net_profit'] < 0 ? 'text-red-500' : 'text-slate-500') ?>">
-                                                <?= $bc['net_profit'] > 0 ? '+' : '' ?><?= number_format($bc['net_profit']) ?>đ
-                                            </td>
-                                        </tr>
-                                    <?php endforeach; ?>
-                                </tbody>
-                            </table>
-                        </div>
-                    </div>
+                <div class="lg:col-span-2">
                     <div class="grid sm:grid-cols-2 gap-6">
-                        <div class="bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden">
+
+                        <div
+                            class="bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden flex flex-col">
+                            <div class="p-4 bg-slate-50 border-b border-slate-200 flex justify-between items-center">
+                                <h2 class="font-bold text-slate-800">🎲 Lịch Sử Bầu Cua</h2>
+                                <span
+                                    class="text-sm font-bold <?= $bc_profit >= 0 ? 'text-green-600' : 'text-red-500' ?>">Lãi:
+                                    <?= number_format($bc_profit) ?>đ</span>
+                            </div>
+                            <div class="overflow-x-auto max-h-[250px] custom-scrollbar flex-1">
+                                <table class="w-full text-left text-sm text-slate-600 whitespace-nowrap text-xs">
+                                    <thead class="bg-slate-50 text-slate-500 sticky top-0 z-10">
+                                        <tr>
+                                            <th class="px-3 py-2">User</th>
+                                            <th class="px-3 py-2">KQ</th>
+                                            <th class="px-3 py-2 text-right">Lãi/Lỗ User</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody class="divide-y divide-slate-100">
+                                        <?php foreach ($bc_histories as $bc): ?>
+                                            <tr class="hover:bg-slate-50">
+                                                <td class="px-3 py-2 font-bold text-blue-600">
+                                                    <?= htmlspecialchars($bc['username']) ?></td>
+                                                <td class="px-3 py-2 text-base">
+                                                    <?= implode(' ', array_map(function ($a) use ($bc_icons) {
+                                                        return $bc_icons[$a];
+                                                    }, explode(',', $bc['dice_result']))) ?>
+                                                </td>
+                                                <td
+                                                    class="px-3 py-2 text-right font-bold <?= $bc['net_profit'] > 0 ? 'text-green-500' : ($bc['net_profit'] < 0 ? 'text-red-500' : 'text-slate-500') ?>">
+                                                    <?= $bc['net_profit'] > 0 ? '+' : '' ?><?= number_format($bc['net_profit']) ?>đ
+                                                </td>
+                                            </tr>
+                                        <?php endforeach; ?>
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
+
+                        <div
+                            class="bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden flex flex-col">
                             <div class="p-4 bg-slate-50 border-b border-slate-200 flex justify-between items-center">
                                 <h2 class="font-bold text-slate-800">🃏 Lịch Sử Xì Dách</h2>
                                 <span
                                     class="text-sm font-bold <?= $bj_profit >= 0 ? 'text-green-600' : 'text-red-500' ?>">Lãi:
                                     <?= number_format($bj_profit) ?>đ</span>
                             </div>
-                            <div class="overflow-x-auto max-h-[200px] custom-scrollbar">
+                            <div class="overflow-x-auto max-h-[250px] custom-scrollbar flex-1">
                                 <table class="w-full text-left text-sm text-slate-600 whitespace-nowrap text-xs">
-                                    <thead class="bg-slate-50 text-slate-500 sticky top-0">
+                                    <thead class="bg-slate-50 text-slate-500 sticky top-0 z-10">
                                         <tr>
                                             <th class="px-3 py-2">User</th>
                                             <th class="px-3 py-2 text-right">Cược</th>
@@ -425,13 +438,14 @@ $pending_gifts = $pdo->query("SELECT COUNT(*) FROM user_gifts WHERE status='pend
                                     </thead>
                                     <tbody class="divide-y divide-slate-100">
                                         <?php foreach ($bj_histories as $bj): ?>
-                                            <tr>
+                                            <tr class="hover:bg-slate-50">
                                                 <td class="px-3 py-2 text-blue-600 font-bold">
                                                     <?= htmlspecialchars($bj['username']) ?></td>
-                                                <td class="px-3 py-2 text-right"><?= number_format($bj['bet']) ?></td>
+                                                <td class="px-3 py-2 text-right font-medium">
+                                                    <?= number_format($bj['bet']) ?>đ</td>
                                                 <td
-                                                    class="px-3 py-2 text-right font-bold <?= $bj['net_profit'] > 0 ? 'text-green-500' : ($bj['net_profit'] < 0 ? 'text-red-500' : '') ?>">
-                                                    <?= $bj['net_profit'] > 0 ? '+' : '' ?><?= number_format($bj['net_profit']) ?>
+                                                    class="px-3 py-2 text-right font-bold <?= $bj['net_profit'] > 0 ? 'text-green-500' : ($bj['net_profit'] < 0 ? 'text-red-500' : 'text-slate-500') ?>">
+                                                    <?= $bj['net_profit'] > 0 ? '+' : '' ?><?= number_format($bj['net_profit']) ?>đ
                                                 </td>
                                             </tr>
                                         <?php endforeach; ?>
@@ -439,16 +453,18 @@ $pending_gifts = $pdo->query("SELECT COUNT(*) FROM user_gifts WHERE status='pend
                                 </table>
                             </div>
                         </div>
-                        <div class="bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden">
+
+                        <div
+                            class="bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden flex flex-col">
                             <div class="p-4 bg-slate-50 border-b border-slate-200 flex justify-between items-center">
                                 <h2 class="font-bold text-slate-800">🃏 Lịch Sử Hi-Lo</h2>
                                 <span
                                     class="text-sm font-bold <?= $hilo_profit >= 0 ? 'text-green-600' : 'text-red-500' ?>">Lãi:
                                     <?= number_format($hilo_profit) ?>đ</span>
                             </div>
-                            <div class="overflow-x-auto max-h-[200px] custom-scrollbar">
+                            <div class="overflow-x-auto max-h-[250px] custom-scrollbar flex-1">
                                 <table class="w-full text-left text-sm text-slate-600 whitespace-nowrap text-xs">
-                                    <thead class="bg-slate-50 text-slate-500 sticky top-0">
+                                    <thead class="bg-slate-50 text-slate-500 sticky top-0 z-10">
                                         <tr>
                                             <th class="px-3 py-2">User</th>
                                             <th class="px-3 py-2 text-center">Chuỗi</th>
@@ -457,14 +473,14 @@ $pending_gifts = $pdo->query("SELECT COUNT(*) FROM user_gifts WHERE status='pend
                                     </thead>
                                     <tbody class="divide-y divide-slate-100">
                                         <?php foreach ($hilo_histories as $hl): ?>
-                                            <tr>
+                                            <tr class="hover:bg-slate-50">
                                                 <td class="px-3 py-2 text-blue-600 font-bold">
                                                     <?= htmlspecialchars($hl['username']) ?></td>
                                                 <td class="px-3 py-2 text-center text-indigo-500 font-bold">
                                                     <?= $hl['streak'] ?></td>
                                                 <td
-                                                    class="px-3 py-2 text-right font-bold <?= $hl['net_profit'] > 0 ? 'text-green-500' : ($hl['net_profit'] < 0 ? 'text-red-500' : '') ?>">
-                                                    <?= $hl['net_profit'] > 0 ? '+' : '' ?><?= number_format($hl['net_profit']) ?>
+                                                    class="px-3 py-2 text-right font-bold <?= $hl['net_profit'] > 0 ? 'text-green-500' : ($hl['net_profit'] < 0 ? 'text-red-500' : 'text-slate-500') ?>">
+                                                    <?= $hl['net_profit'] > 0 ? '+' : '' ?><?= number_format($hl['net_profit']) ?>đ
                                                 </td>
                                             </tr>
                                         <?php endforeach; ?>
@@ -472,9 +488,49 @@ $pending_gifts = $pdo->query("SELECT COUNT(*) FROM user_gifts WHERE status='pend
                                 </table>
                             </div>
                         </div>
+
+                        <div
+                            class="bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden flex flex-col">
+                            <div class="p-4 bg-slate-50 border-b border-slate-200 flex justify-between items-center">
+                                <h2 class="font-bold text-slate-800">💣 Lịch Sử Dò Mìn</h2>
+                                <span
+                                    class="text-sm font-bold <?= $mines_profit >= 0 ? 'text-green-600' : 'text-red-500' ?>">Lãi:
+                                    <?= number_format($mines_profit) ?>đ</span>
+                            </div>
+                            <div class="overflow-x-auto max-h-[250px] custom-scrollbar flex-1">
+                                <table class="w-full text-left text-sm text-slate-600 whitespace-nowrap text-xs">
+                                    <thead class="bg-slate-50 text-slate-500 sticky top-0 z-10">
+                                        <tr>
+                                            <th class="px-3 py-2">User</th>
+                                            <th class="px-3 py-2 text-center">Cược</th>
+                                            <th class="px-3 py-2 text-center">Mìn/Bước</th>
+                                            <th class="px-3 py-2 text-right">KQ User</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody class="divide-y divide-slate-100">
+                                        <?php foreach ($mines_histories as $mh): ?>
+                                            <tr class="hover:bg-slate-50">
+                                                <td class="px-3 py-2 text-blue-600 font-bold">
+                                                    <?= htmlspecialchars($mh['username']) ?></td>
+                                                <td class="px-3 py-2 text-center font-medium">
+                                                    <?= number_format($mh['bet']) ?>đ</td>
+                                                <td class="px-3 py-2 text-center text-slate-500 font-bold">
+                                                    <?= $mh['bombs'] ?>💣 / <?= $mh['steps'] ?>👣</td>
+                                                <td
+                                                    class="px-3 py-2 text-right font-bold <?= $mh['net_profit'] > 0 ? 'text-green-500' : ($mh['net_profit'] < 0 ? 'text-red-500' : 'text-slate-500') ?>">
+                                                    <?= $mh['net_profit'] > 0 ? '+' : '' ?><?= number_format($mh['net_profit']) ?>đ
+                                                </td>
+                                            </tr>
+                                        <?php endforeach; ?>
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
+
                     </div>
                 </div>
             </div>
+        </div>
         </div>
 
         <div id="tab-users" class="tab-content">
