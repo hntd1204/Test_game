@@ -14,14 +14,16 @@ if (isset($_SESSION['msg'])) {
     unset($_SESSION['msg']);
 }
 
-// 1. Xử lý lưu cài đặt mức tiền
+// 1. Xử lý lưu cài đặt hệ thống (Vòng quay & Hi-Lo)
 if (isset($_POST['update_settings'])) {
     $min = $_POST['min_reward'];
     $max = $_POST['max_reward'];
-    $stmt = $pdo->prepare("UPDATE settings SET min_reward = ?, max_reward = ? WHERE id = 1");
-    $stmt->execute([$min, $max]);
+    $hilo_multi = (float)$_POST['hilo_multi'];
 
-    $_SESSION['msg'] = "✅ Đã cập nhật mức tiền thưởng!";
+    $stmt = $pdo->prepare("UPDATE settings SET min_reward = ?, max_reward = ?, hilo_multi = ? WHERE id = 1");
+    $stmt->execute([$min, $max, $hilo_multi]);
+
+    $_SESSION['msg'] = "✅ Đã cập nhật cài đặt hệ thống!";
     header("Location: admin.php"); // Chuyển hướng để tránh lỗi F5
     exit;
 }
@@ -216,22 +218,34 @@ $max_history_id = count($histories) > 0 ? $histories[0]['id'] : 0;
         <div class="grid lg:grid-cols-2 gap-6">
             <div class="space-y-6">
                 <div class="bg-white p-6 rounded-2xl shadow-sm border border-slate-200">
-                    <h2 class="text-lg font-bold text-slate-800 mb-4 border-b pb-2">Cài đặt Mức Tiền Random</h2>
+                    <h2 class="text-lg font-bold text-slate-800 mb-4 border-b pb-2">⚙️ Cài đặt Hệ Thống & Tỉ Lệ</h2>
                     <form method="POST" class="space-y-4">
-                        <div class="grid grid-cols-2 gap-4">
+
+                        <h3 class="text-sm font-bold text-blue-600">1. Vòng Quay May Mắn (VNĐ)</h3>
+                        <div class="grid grid-cols-2 gap-4 mb-4">
                             <div>
-                                <label class="block text-sm font-medium text-slate-600 mb-1">Tối thiểu (VNĐ)</label>
+                                <label class="block text-xs font-medium text-slate-600 mb-1">Thưởng tối thiểu</label>
                                 <input type="number" name="min_reward" value="<?= $settings['min_reward'] ?>" required
                                     class="w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 outline-none bg-slate-50">
                             </div>
                             <div>
-                                <label class="block text-sm font-medium text-slate-600 mb-1">Tối đa (VNĐ)</label>
+                                <label class="block text-xs font-medium text-slate-600 mb-1">Thưởng tối đa</label>
                                 <input type="number" name="max_reward" value="<?= $settings['max_reward'] ?>" required
                                     class="w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 outline-none bg-slate-50">
                             </div>
                         </div>
+
+                        <h3 class="text-sm font-bold text-indigo-600">2. Game Lật Bài (Hi-Lo)</h3>
+                        <div>
+                            <label class="block text-xs font-medium text-slate-600 mb-1">Hệ số nhân thưởng mỗi lần đoán
+                                đúng (VD: 1.5)</label>
+                            <input type="number" step="0.01" name="hilo_multi"
+                                value="<?= isset($settings['hilo_multi']) ? $settings['hilo_multi'] : 1.5 ?>" required
+                                class="w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-indigo-500 outline-none bg-slate-50">
+                        </div>
+
                         <button type="submit" name="update_settings"
-                            class="w-full bg-blue-600 hover:bg-blue-700 text-white font-medium py-2.5 rounded-lg transition shadow-md">Lưu
+                            class="w-full bg-slate-800 hover:bg-slate-900 text-white font-medium py-2.5 rounded-lg transition shadow-md mt-4">Lưu
                             Cài Đặt</button>
                     </form>
                 </div>

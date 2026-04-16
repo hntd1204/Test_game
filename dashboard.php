@@ -37,25 +37,25 @@ try {
     <title>Dashboard - Vòng Quay May Mắn</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <style>
-        .number-display {
-            font-variant-numeric: tabular-nums;
+    .number-display {
+        font-variant-numeric: tabular-nums;
+    }
+
+    @keyframes pulse-custom {
+
+        0%,
+        100% {
+            opacity: 1;
         }
 
-        @keyframes pulse-custom {
-
-            0%,
-            100% {
-                opacity: 1;
-            }
-
-            50% {
-                opacity: 0.7;
-            }
+        50% {
+            opacity: 0.7;
         }
+    }
 
-        .animate-pulse-custom {
-            animation: pulse-custom 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
-        }
+    .animate-pulse-custom {
+        animation: pulse-custom 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+    }
     </style>
 </head>
 
@@ -85,37 +85,37 @@ try {
                     $currentProgress = isset($user[$ms['mission_key']]) ? (int)$user[$ms['mission_key']] : 0;
                     $percent = min(100, ($currentProgress / $ms['target_count']) * 100);
                 ?>
-                    <div
-                        class="p-4 bg-slate-50 rounded-xl border border-slate-100 relative overflow-hidden group hover:shadow-md transition">
-                        <div class="absolute top-0 left-0 h-full bg-blue-50/50 transition-all duration-700 -z-10"
-                            style="width: <?= $percent ?>%"></div>
+                <div
+                    class="p-4 bg-slate-50 rounded-xl border border-slate-100 relative overflow-hidden group hover:shadow-md transition">
+                    <div class="absolute top-0 left-0 h-full bg-blue-50/50 transition-all duration-700 -z-10"
+                        style="width: <?= $percent ?>%"></div>
 
-                        <div class="flex justify-between items-start mb-2">
-                            <div>
-                                <span
-                                    class="text-sm font-bold text-slate-800 block"><?= htmlspecialchars($ms['mission_name']) ?></span>
-                                <span
-                                    class="text-[10px] font-bold text-green-600 bg-green-100 px-2 py-0.5 rounded-full mt-1 inline-block">+<?= $ms['reward_spins'] ?>
-                                    Lượt quay</span>
-                            </div>
+                    <div class="flex justify-between items-start mb-2">
+                        <div>
                             <span
-                                class="text-xs font-black text-blue-600 bg-white px-2 py-1 rounded shadow-sm border border-blue-100">
-                                <?= $currentProgress ?>/<?= $ms['target_count'] ?>
-                            </span>
+                                class="text-sm font-bold text-slate-800 block"><?= htmlspecialchars($ms['mission_name']) ?></span>
+                            <span
+                                class="text-[10px] font-bold text-green-600 bg-green-100 px-2 py-0.5 rounded-full mt-1 inline-block">+<?= $ms['reward_spins'] ?>
+                                Lượt quay</span>
                         </div>
-
-                        <div class="w-full bg-slate-200 rounded-full h-1.5 mt-3">
-                            <div class="bg-gradient-to-r from-blue-500 to-purple-500 h-1.5 rounded-full transition-all duration-700"
-                                style="width: <?= $percent ?>%"></div>
-                        </div>
+                        <span
+                            class="text-xs font-black text-blue-600 bg-white px-2 py-1 rounded shadow-sm border border-blue-100">
+                            <?= $currentProgress ?>/<?= $ms['target_count'] ?>
+                        </span>
                     </div>
+
+                    <div class="w-full bg-slate-200 rounded-full h-1.5 mt-3">
+                        <div class="bg-gradient-to-r from-blue-500 to-purple-500 h-1.5 rounded-full transition-all duration-700"
+                            style="width: <?= $percent ?>%"></div>
+                    </div>
+                </div>
                 <?php endforeach; ?>
 
                 <?php if (empty($missions)): ?>
-                    <div
-                        class="col-span-1 sm:col-span-2 text-center py-4 border-2 border-dashed border-slate-200 rounded-xl text-slate-400 text-sm">
-                        Chưa có nhiệm vụ nào được hệ thống cấu hình.
-                    </div>
+                <div
+                    class="col-span-1 sm:col-span-2 text-center py-4 border-2 border-dashed border-slate-200 rounded-xl text-slate-400 text-sm">
+                    Chưa có nhiệm vụ nào được hệ thống cấu hình.
+                </div>
                 <?php endif; ?>
             </div>
         </div>
@@ -168,6 +168,19 @@ try {
         </div>
 
         <div
+            class="bg-gradient-to-r from-indigo-700 to-blue-900 p-6 rounded-2xl shadow-lg text-white mb-8 flex flex-col sm:flex-row justify-between items-center transform transition hover:scale-[1.02]">
+            <div>
+                <h3 class="text-xl font-bold mb-2">🃏 Mini Game: Lật Bài (Hi-Lo)</h3>
+                <p class="text-sm text-indigo-200">Đoán lá bài tiếp theo lớn hay nhỏ. Đoán càng chuẩn, tiền nhân càng
+                    to!</p>
+            </div>
+            <a href="hilo.php"
+                class="mt-4 sm:mt-0 bg-white text-indigo-900 font-bold px-6 py-3 rounded-full shadow-md hover:bg-slate-100 whitespace-nowrap">
+                Thử Thách
+            </a>
+        </div>
+
+        <div
             class="bg-white p-5 sm:p-8 md:p-10 rounded-3xl shadow-xl border border-slate-100 text-center max-w-2xl mx-auto">
             <h2 class="text-xl sm:text-2xl font-bold text-slate-800 mb-6 sm:mb-8">Trải Nghiệm Vận May</h2>
 
@@ -205,17 +218,17 @@ try {
                     </thead>
                     <tbody class="divide-y divide-slate-100">
                         <?php foreach ($myHistories as $h): ?>
-                            <tr class="hover:bg-slate-50 transition">
-                                <td class="px-5 py-3 text-xs"><?= date('H:i d/m/Y', strtotime($h['created_at'])) ?></td>
-                                <td class="px-5 py-3 text-right font-bold text-green-600">
-                                    +<?= number_format($h['reward']) ?>đ</td>
-                            </tr>
+                        <tr class="hover:bg-slate-50 transition">
+                            <td class="px-5 py-3 text-xs"><?= date('H:i d/m/Y', strtotime($h['created_at'])) ?></td>
+                            <td class="px-5 py-3 text-right font-bold text-green-600">
+                                +<?= number_format($h['reward']) ?>đ</td>
+                        </tr>
                         <?php endforeach; ?>
                         <?php if (count($myHistories) == 0): ?>
-                            <tr>
-                                <td colspan="2" class="px-5 py-8 text-center text-slate-400">Bạn chưa thực hiện lượt quay
-                                    nào.</td>
-                            </tr>
+                        <tr>
+                            <td colspan="2" class="px-5 py-8 text-center text-slate-400">Bạn chưa thực hiện lượt quay
+                                nào.</td>
+                        </tr>
                         <?php endif; ?>
                     </tbody>
                 </table>
@@ -284,14 +297,14 @@ try {
                         $shopStmt = $pdo->query("SELECT * FROM shop_items WHERE is_active = 1 ORDER BY cost ASC");
                         while ($item = $shopStmt->fetch()):
                     ?>
-                            <button
-                                onclick="buyAction('buy_gift', <?= $item['id'] ?>, '<?= htmlspecialchars($item['name']) ?>', <?= $item['cost'] ?>)"
-                                class="w-full flex justify-between items-center bg-green-50 hover:bg-green-100 p-3 rounded-xl border border-green-200 transition-all active:scale-95">
-                                <span class="font-bold text-green-700"><?= htmlspecialchars($item['name']) ?></span>
-                                <span
-                                    class="bg-green-500 text-white text-xs font-bold px-3 py-1 rounded-full"><?= number_format($item['cost']) ?>
-                                    VNĐ</span>
-                            </button>
+                    <button
+                        onclick="buyAction('buy_gift', <?= $item['id'] ?>, '<?= htmlspecialchars($item['name']) ?>', <?= $item['cost'] ?>)"
+                        class="w-full flex justify-between items-center bg-green-50 hover:bg-green-100 p-3 rounded-xl border border-green-200 transition-all active:scale-95">
+                        <span class="font-bold text-green-700"><?= htmlspecialchars($item['name']) ?></span>
+                        <span
+                            class="bg-green-500 text-white text-xs font-bold px-3 py-1 rounded-full"><?= number_format($item['cost']) ?>
+                            VNĐ</span>
+                    </button>
                     <?php
                         endwhile;
                     } catch (Exception $e) {
@@ -329,121 +342,121 @@ try {
     </main>
 
     <script>
-        // Âm thanh hệ thống
-        const sounds = {
-            spin: new Audio('https://www.soundjay.com/misc/sounds/mechanical-clonk-1.mp3'),
-            win: new Audio('https://www.soundjay.com/misc/sounds/bell-ringing-05.mp3'),
-            error: new Audio('https://www.soundjay.com/buttons/button-10.mp3')
-        };
+    // Âm thanh hệ thống
+    const sounds = {
+        spin: new Audio('https://www.soundjay.com/misc/sounds/mechanical-clonk-1.mp3'),
+        win: new Audio('https://www.soundjay.com/misc/sounds/bell-ringing-05.mp3'),
+        error: new Audio('https://www.soundjay.com/buttons/button-10.mp3')
+    };
 
-        document.getElementById('spinBtn').addEventListener('click', async function() {
-            const btn = this;
-            const msg = document.getElementById('resultMsg');
-            const numberDisplay = document.getElementById('spinningNumber');
+    document.getElementById('spinBtn').addEventListener('click', async function() {
+        const btn = this;
+        const msg = document.getElementById('resultMsg');
+        const numberDisplay = document.getElementById('spinningNumber');
 
-            btn.disabled = true;
-            msg.innerText = "";
-            numberDisplay.classList.remove('text-green-400', 'scale-110');
-            numberDisplay.classList.add('text-yellow-400', 'animate-pulse-custom');
+        btn.disabled = true;
+        msg.innerText = "";
+        numberDisplay.classList.remove('text-green-400', 'scale-110');
+        numberDisplay.classList.add('text-yellow-400', 'animate-pulse-custom');
 
-            // Phát âm thanh khi quay
-            sounds.spin.play();
-            sounds.spin.loop = true;
+        // Phát âm thanh khi quay
+        sounds.spin.play();
+        sounds.spin.loop = true;
 
-            let spinInterval = setInterval(() => {
-                const randomVisualNum = Math.floor(Math.random() * 100) * 1000 + 1000;
-                numberDisplay.innerText = randomVisualNum.toLocaleString() + " VNĐ";
-            }, 50);
+        let spinInterval = setInterval(() => {
+            const randomVisualNum = Math.floor(Math.random() * 100) * 1000 + 1000;
+            numberDisplay.innerText = randomVisualNum.toLocaleString() + " VNĐ";
+        }, 50);
 
-            try {
-                const response = await fetch('process_spin.php');
-                const data = await response.json();
+        try {
+            const response = await fetch('process_spin.php');
+            const data = await response.json();
 
-                setTimeout(() => {
-                    clearInterval(spinInterval);
-                    sounds.spin.loop = false;
-                    sounds.spin.pause();
-
-                    if (data.success) {
-                        sounds.win.play(); // Âm thanh trúng
-                        numberDisplay.innerText = data.reward.toLocaleString() + " VNĐ";
-                        numberDisplay.classList.remove('text-yellow-400');
-                        numberDisplay.classList.add('text-green-400', 'scale-110');
-
-                        msg.innerText = "🎉 Bạn trúng " + data.reward.toLocaleString() + " đ";
-                        msg.className =
-                            "mt-4 sm:mt-6 min-h-[32px] sm:min-h-[40px] text-lg md:text-2xl font-extrabold text-transparent bg-clip-text bg-gradient-to-r from-green-500 to-emerald-700 animate-bounce flex items-center justify-center";
-
-                        document.getElementById('balance').innerText = data.new_balance
-                            .toLocaleString();
-                        document.getElementById('spins').innerText = data.spins_left;
-
-                        if (data.spins_left > 0) btn.disabled = false;
-                    } else {
-                        sounds.error.play(); // Âm thanh lỗi/hết lượt
-                        numberDisplay.classList.remove('text-yellow-400');
-                        numberDisplay.innerText = "0 VNĐ";
-                        msg.innerText = "❌ " + data.error;
-                        msg.className =
-                            "mt-4 sm:mt-6 min-h-[32px] sm:min-h-[40px] text-lg font-bold text-red-500 flex items-center justify-center";
-                    }
-                    numberDisplay.classList.remove('animate-pulse-custom');
-                }, 1500);
-
-            } catch (err) {
+            setTimeout(() => {
                 clearInterval(spinInterval);
+                sounds.spin.loop = false;
                 sounds.spin.pause();
-                numberDisplay.innerText = "LỖI";
-                msg.innerText = "Có lỗi xảy ra, thử lại sau.";
-                msg.className =
-                    "mt-4 sm:mt-6 min-h-[32px] sm:min-h-[40px] text-lg font-bold text-red-500 flex items-center justify-center";
-                btn.disabled = false;
-            }
-        });
 
-        async function requestWithdraw() {
-            const amount = document.getElementById('withdrawAmount').value;
-            if (!amount || amount < 10000) return alert("Vui lòng nhập số tiền hợp lệ (Tối thiểu 10k)!");
-            if (!confirm(`Bạn chắc chắn muốn rút ${Number(amount).toLocaleString()} VNĐ?`)) return;
-            const formData = new FormData();
-            formData.append('action', 'withdraw');
-            formData.append('amount', amount);
-            await sendAction(formData);
-            setTimeout(() => location.reload(), 1500);
-        }
-
-        async function buyAction(actionName, itemId = null, giftName = '', cost = 0) {
-            let msg = actionName === 'buy_spin' ? "Mua 1 lượt quay với giá 50.000 VNĐ?" :
-                `Đổi ${giftName} với giá ${Number(cost).toLocaleString()} VNĐ?`;
-            if (!confirm(msg)) return;
-            const formData = new FormData();
-            formData.append('action', actionName);
-            if (itemId) formData.append('item_id', itemId);
-            await sendAction(formData);
-        }
-
-        async function sendAction(formData) {
-            try {
-                const res = await fetch('user_actions.php', {
-                    method: 'POST',
-                    body: formData
-                });
-                const data = await res.json();
                 if (data.success) {
-                    alert("🎉 " + data.message);
-                    document.getElementById('balance').innerText = data.new_balance.toLocaleString();
-                    if (data.spins_left !== undefined) {
-                        document.getElementById('spins').innerText = data.spins_left;
-                        if (data.spins_left > 0) document.getElementById('spinBtn').disabled = false;
-                    }
+                    sounds.win.play(); // Âm thanh trúng
+                    numberDisplay.innerText = data.reward.toLocaleString() + " VNĐ";
+                    numberDisplay.classList.remove('text-yellow-400');
+                    numberDisplay.classList.add('text-green-400', 'scale-110');
+
+                    msg.innerText = "🎉 Bạn trúng " + data.reward.toLocaleString() + " đ";
+                    msg.className =
+                        "mt-4 sm:mt-6 min-h-[32px] sm:min-h-[40px] text-lg md:text-2xl font-extrabold text-transparent bg-clip-text bg-gradient-to-r from-green-500 to-emerald-700 animate-bounce flex items-center justify-center";
+
+                    document.getElementById('balance').innerText = data.new_balance
+                        .toLocaleString();
+                    document.getElementById('spins').innerText = data.spins_left;
+
+                    if (data.spins_left > 0) btn.disabled = false;
                 } else {
-                    alert("❌ " + data.error);
+                    sounds.error.play(); // Âm thanh lỗi/hết lượt
+                    numberDisplay.classList.remove('text-yellow-400');
+                    numberDisplay.innerText = "0 VNĐ";
+                    msg.innerText = "❌ " + data.error;
+                    msg.className =
+                        "mt-4 sm:mt-6 min-h-[32px] sm:min-h-[40px] text-lg font-bold text-red-500 flex items-center justify-center";
                 }
-            } catch (err) {
-                alert("Lỗi kết nối!");
-                console.error(err);
-            }
+                numberDisplay.classList.remove('animate-pulse-custom');
+            }, 1500);
+
+        } catch (err) {
+            clearInterval(spinInterval);
+            sounds.spin.pause();
+            numberDisplay.innerText = "LỖI";
+            msg.innerText = "Có lỗi xảy ra, thử lại sau.";
+            msg.className =
+                "mt-4 sm:mt-6 min-h-[32px] sm:min-h-[40px] text-lg font-bold text-red-500 flex items-center justify-center";
+            btn.disabled = false;
         }
+    });
+
+    async function requestWithdraw() {
+        const amount = document.getElementById('withdrawAmount').value;
+        if (!amount || amount < 10000) return alert("Vui lòng nhập số tiền hợp lệ (Tối thiểu 10k)!");
+        if (!confirm(`Bạn chắc chắn muốn rút ${Number(amount).toLocaleString()} VNĐ?`)) return;
+        const formData = new FormData();
+        formData.append('action', 'withdraw');
+        formData.append('amount', amount);
+        await sendAction(formData);
+        setTimeout(() => location.reload(), 1500);
+    }
+
+    async function buyAction(actionName, itemId = null, giftName = '', cost = 0) {
+        let msg = actionName === 'buy_spin' ? "Mua 1 lượt quay với giá 50.000 VNĐ?" :
+            `Đổi ${giftName} với giá ${Number(cost).toLocaleString()} VNĐ?`;
+        if (!confirm(msg)) return;
+        const formData = new FormData();
+        formData.append('action', actionName);
+        if (itemId) formData.append('item_id', itemId);
+        await sendAction(formData);
+    }
+
+    async function sendAction(formData) {
+        try {
+            const res = await fetch('user_actions.php', {
+                method: 'POST',
+                body: formData
+            });
+            const data = await res.json();
+            if (data.success) {
+                alert("🎉 " + data.message);
+                document.getElementById('balance').innerText = data.new_balance.toLocaleString();
+                if (data.spins_left !== undefined) {
+                    document.getElementById('spins').innerText = data.spins_left;
+                    if (data.spins_left > 0) document.getElementById('spinBtn').disabled = false;
+                }
+            } else {
+                alert("❌ " + data.error);
+            }
+        } catch (err) {
+            alert("Lỗi kết nối!");
+            console.error(err);
+        }
+    }
     </script>
 </body>
 
