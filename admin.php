@@ -140,7 +140,7 @@ if (isset($_GET['delete_mission'])) {
 
 // --- FETCH DỮ LIỆU HIỂN THỊ & THỐNG KÊ ---
 $settings = $pdo->query("SELECT * FROM settings WHERE id = 1")->fetch();
-$users_stmt = $pdo->query("SELECT id, username, spins_available FROM users WHERE role = 'user' ORDER BY id DESC");
+$users_stmt = $pdo->query("SELECT id, username, balance, spins_available FROM users WHERE role = 'user' ORDER BY id DESC");
 $user_list = $users_stmt->fetchAll();
 $missions = $pdo->query("SELECT * FROM mission_settings")->fetchAll();
 
