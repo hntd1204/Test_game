@@ -14,14 +14,22 @@ if (isset($_SESSION['msg'])) {
     unset($_SESSION['msg']);
 }
 
+try {
+    $pdo->exec("ALTER TABLE settings ADD COLUMN mines_add_money INT DEFAULT 10000");
+} catch (Exception $e) {
+    // Cột đã tồn tại thì bỏ qua
+}
+
 // 1. Xử lý lưu cài đặt hệ thống
 if (isset($_POST['update_settings'])) {
-    $min = $_POST['min_reward'];
-    $max = $_POST['max_reward'];
+    $min = (int)$_POST['min_reward'];
+    $max = (int)$_POST['max_reward'];
     $m_bombs = (int)$_POST['mines_bombs'];
+    $m_add = (int)$_POST['mines_add_money']; // Tiền cộng mỗi ô
 
-    $stmt = $pdo->prepare("UPDATE settings SET min_reward = ?, max_reward = ?, mines_bombs = ? WHERE id = 1");
-    $stmt->execute([$min, $max, $m_bombs]);
+    $stmt = $pdo->prepare("UPDATE settings SET min_reward = ?, max_reward = ?, mines_bombs = ?, mines_add_money = ? WHERE id = 1");
+    $stmt->execute([$min, $max, $m_bombs, $m_add]);
+
     $_SESSION['msg'] = "✅ Đã cập nhật toàn bộ cài đặt Game & Hệ thống!";
     header("Location: admin.php");
     exit;
@@ -618,12 +626,25 @@ $pending_gifts = $pdo->query("SELECT COUNT(*) FROM user_gifts WHERE status='pend
                             <input type="hidden" name="max_reward" value="<?= $settings['max_reward'] ?>">
 
                             <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-                                <div class="bg-slate-50 p-4 rounded-xl border border-slate-100">
-                                    <h3 class="font-bold text-sm text-slate-700 mb-2">💣 Dò Mìn (Mines)</h3>
-                                    <label class="block text-xs font-bold text-slate-500 mb-1">Số lượng mìn mặc định
-                                        (1-24)</label>
-                                    <input type="number" name="mines_bombs" value="<?= $settings['mines_bombs'] ?>"
-                                        min="1" max="24" required class="w-full px-3 py-2 border rounded-lg text-sm">
+                                <div
+                                    class="bg-slate-50 p-4 rounded-xl border border-slate-100 col-span-1 md:col-span-2">
+                                    <h3 class="font-bold text-sm text-slate-700 mb-3">💣 Dò Mìn (Mines)</h3>
+                                    <div class="grid grid-cols-2 gap-4">
+                                        <div>
+                                            <label class="block text-xs font-bold text-slate-500 mb-1">Số lượng mìn mặc
+                                                định (1-24)</label>
+                                            <input type="number" name="mines_bombs"
+                                                value="<?= $settings['mines_bombs'] ?>" min="1" max="24" required
+                                                class="w-full px-3 py-2 border rounded-lg text-sm">
+                                        </div>
+                                        <div>
+                                            <label class="block text-xs font-bold text-slate-500 mb-1">Tiền được cộng
+                                                khi mở đúng ô (VNĐ)</label>
+                                            <input type="number" name="mines_add_money"
+                                                value="<?= $settings['mines_add_money'] ?? 10000 ?>" required
+                                                class="w-full px-3 py-2 border rounded-lg text-sm text-emerald-600 font-bold">
+                                        </div>
+                                    </div>
                                 </div>
                             </div>
                             <button type="submit" name="update_settings"
