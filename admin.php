@@ -133,7 +133,8 @@ if (isset($_POST['add_mission'])) {
 
     $mapping = [
         'baucua' => 'baucua_count',
-        'blackjack' => 'blackjack_count'
+        'blackjack' => 'blackjack_count',
+        'hilo' => 'hilo_count'
     ];
     $key = $mapping[$game_type] ?? 'baucua_count';
 
@@ -267,6 +268,7 @@ $max_history_id = count($histories) > 0 ? $histories[0]['id'] : 0;
                                     class="w-full px-3 py-2 border rounded-lg outline-none text-sm bg-white cursor-pointer">
                                     <option value="baucua">Bầu Cua Tôm Cá</option>
                                     <option value="blackjack">Xì Dách</option>
+                                    <option value="hilo">Lật Bài (Hi-Lo)</option>
                                 </select>
                             </div>
                             <div class="flex gap-2">
