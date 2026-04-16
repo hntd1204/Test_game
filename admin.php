@@ -22,22 +22,31 @@ try {
 } catch (Exception $e) {
 }
 
-// 1. Xử lý lưu cài đặt hệ thống & minigame
-if (isset($_POST['update_settings'])) {
+// 1A. Xử lý lưu cài đặt hệ thống vòng quay
+if (isset($_POST['update_system_settings'])) {
     $min = (int)$_POST['min_reward'];
     $max = (int)$_POST['max_reward'];
 
-    // Config Minigame
+    $stmt = $pdo->prepare("UPDATE settings SET min_reward = ?, max_reward = ? WHERE id = 1");
+    $stmt->execute([$min, $max]);
+
+    $_SESSION['msg'] = "✅ Đã cập nhật cài đặt Thưởng Vòng Quay!";
+    header("Location: admin.php");
+    exit;
+}
+
+// 1B. Xử lý lưu cài đặt minigame
+if (isset($_POST['update_minigame_settings'])) {
     $m_bombs = (int)($_POST['mines_bombs'] ?? 3);
     $bc_mul = (float)($_POST['baucua_multiplier'] ?? 1.0);
     $bj_mul = (float)($_POST['blackjack_multiplier'] ?? 2.0);
     $hilo_mul = (float)($_POST['hilo_multiplier'] ?? 1.2);
     $mines_mul = (float)($_POST['mines_multiplier'] ?? 1.2);
 
-    $stmt = $pdo->prepare("UPDATE settings SET min_reward = ?, max_reward = ?, mines_bombs = ?, baucua_multiplier = ?, blackjack_multiplier = ?, hilo_multiplier = ?, mines_multiplier = ? WHERE id = 1");
-    $stmt->execute([$min, $max, $m_bombs, $bc_mul, $bj_mul, $hilo_mul, $mines_mul]);
+    $stmt = $pdo->prepare("UPDATE settings SET mines_bombs = ?, baucua_multiplier = ?, blackjack_multiplier = ?, hilo_multiplier = ?, mines_multiplier = ? WHERE id = 1");
+    $stmt->execute([$m_bombs, $bc_mul, $bj_mul, $hilo_mul, $mines_mul]);
 
-    $_SESSION['msg'] = "✅ Đã cập nhật toàn bộ cài đặt Game & Hệ thống!";
+    $_SESSION['msg'] = "✅ Đã cập nhật cấu hình Minigame!";
     header("Location: admin.php");
     exit;
 }
@@ -686,7 +695,7 @@ $pending_gifts = $pdo->query("SELECT COUNT(*) FROM user_gifts WHERE status='pend
                                         class="w-full px-4 py-2.5 border border-slate-200 rounded-xl focus:ring-2 focus:ring-blue-500 outline-none bg-slate-50 text-sm font-bold">
                                 </div>
                             </div>
-                            <button type="submit" name="update_settings"
+                            <button type="submit" name="update_system_settings"
                                 class="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-3 rounded-xl transition shadow-md">Lưu
                                 Cài Đặt Hệ Thống</button>
                         </form>
@@ -746,7 +755,7 @@ $pending_gifts = $pdo->query("SELECT COUNT(*) FROM user_gifts WHERE status='pend
                                     </div>
                                 </div>
                             </div>
-                            <button type="submit" name="update_settings"
+                            <button type="submit" name="update_minigame_settings"
                                 class="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-3 rounded-xl transition shadow-md">Lưu
                                 Cấu Hình Minigame</button>
                         </form>
