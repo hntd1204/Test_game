@@ -92,79 +92,105 @@ $user = $stmt->fetch();
     <script>
     // Giữ nguyên logic JS cũ của bạn, chỉ tinh chỉnh hiệu ứng hiển thị
     let isPlaying = false;
+    let isProcessing = false; // Thêm cờ chặn spam click
 
     async function startGame() {
+        if (isProcessing) return;
+        isProcessing = true; // Khóa thao tác
+
         const bet = document.getElementById('betAmount').value;
         const fd = new FormData();
         fd.append('action', 'start');
         fd.append('bet', bet);
-        const res = await fetch('process_mines.php', {
-            method: 'POST',
-            body: fd
-        }).then(r => r.json());
 
-        if (!res.success) return alert(res.error);
+        try {
+            const res = await fetch('process_mines.php', {
+                method: 'POST',
+                body: fd
+            }).then(r => r.json());
 
-        isPlaying = true;
-        document.getElementById('balance').innerText = res.balance.toLocaleString();
-        document.getElementById('pot').innerText = res.pot.toLocaleString();
-        document.getElementById('startBtn').classList.add('hidden');
-        document.getElementById('betAmount').classList.add('hidden');
-        document.getElementById('cashoutBtn').classList.remove('hidden');
-        document.getElementById('msg').innerHTML =
-            '<span class="text-amber-400 animate-pulse">Đang rà mìn...</span>';
+            if (!res.success) return alert(res.error);
 
-        const grid = document.getElementById('grid');
-        grid.classList.remove('pointer-events-none', 'opacity-50');
-        document.querySelectorAll('.tile').forEach(t => {
-            t.innerHTML = '';
-            t.className =
-                'tile aspect-square bg-slate-700 rounded-xl shadow-inner font-black text-2xl border-b-4 border-slate-900 hover:bg-slate-600 transition-all flex items-center justify-center active:border-b-0 active:translate-y-1';
-            t.disabled = false;
-        });
+            isPlaying = true;
+            // Ép kiểu Number() để dấu phẩy hiển thị chuẩn 100%
+            document.getElementById('balance').innerText = Number(res.balance).toLocaleString('vi-VN');
+            document.getElementById('pot').innerText = Number(res.pot).toLocaleString('vi-VN');
+
+            document.getElementById('startBtn').classList.add('hidden');
+            document.getElementById('betAmount').classList.add('hidden');
+            document.getElementById('cashoutBtn').classList.remove('hidden');
+            document.getElementById('msg').innerHTML =
+                '<span class="text-amber-400 animate-pulse">Đang rà mìn...</span>';
+
+            const grid = document.getElementById('grid');
+            grid.classList.remove('pointer-events-none', 'opacity-50');
+            document.querySelectorAll('.tile').forEach(t => {
+                t.innerHTML = '';
+                t.className =
+                    'tile aspect-square bg-slate-700 rounded-xl shadow-inner font-black text-2xl border-b-4 border-slate-900 hover:bg-slate-600 transition-all flex items-center justify-center active:border-b-0 active:translate-y-1';
+                t.disabled = false;
+            });
+        } finally {
+            isProcessing = false; // Mở khóa thao tác
+        }
     }
 
     async function openTile(index, btn) {
-        if (!isPlaying || btn.disabled) return;
+        if (!isPlaying || btn.disabled || isProcessing) return;
+        isProcessing = true; // Khóa thao tác
+        btn.disabled = true; // Disable ô bấm ngay lập tức
+
         const fd = new FormData();
         fd.append('action', 'open');
         fd.append('index', index);
-        const res = await fetch('process_mines.php', {
-            method: 'POST',
-            body: fd
-        }).then(r => r.json());
 
-        btn.disabled = true;
-        btn.classList.add('tile-enter');
+        try {
+            const res = await fetch('process_mines.php', {
+                method: 'POST',
+                body: fd
+            }).then(r => r.json());
+            btn.classList.add('tile-enter');
 
-        if (res.is_bomb) {
-            isPlaying = false;
-            btn.innerHTML = '💣';
-            btn.classList.replace('bg-slate-700', 'bg-rose-500');
-            btn.classList.replace('border-slate-900', 'border-rose-700');
-            document.getElementById('msg').innerHTML = '<span class="text-rose-500">BÙM! Đạp mìn!</span>';
-            resetUI();
-        } else {
-            btn.innerHTML = '💎';
-            btn.classList.replace('bg-slate-700', 'bg-emerald-500');
-            btn.classList.replace('border-slate-900', 'border-emerald-700');
-            document.getElementById('pot').innerText = res.pot.toLocaleString();
+            if (res.is_bomb) {
+                isPlaying = false;
+                btn.innerHTML = '💣';
+                btn.classList.replace('bg-slate-700', 'bg-rose-500');
+                btn.classList.replace('border-slate-900', 'border-rose-700');
+                document.getElementById('msg').innerHTML = '<span class="text-rose-500">BÙM! Đạp mìn!</span>';
+                resetUI();
+            } else {
+                btn.innerHTML = '💎';
+                btn.classList.replace('bg-slate-700', 'bg-emerald-500');
+                btn.classList.replace('border-slate-900', 'border-emerald-700');
+                document.getElementById('pot').innerText = Number(res.pot).toLocaleString('vi-VN');
+            }
+        } finally {
+            isProcessing = false;
         }
     }
 
     async function cashout() {
-        if (!isPlaying) return;
+        if (!isPlaying || isProcessing) return;
+        isProcessing = true;
+        isPlaying = false; // Dừng game ngay lập tức để chặn bấm tiếp mìn
+
         const fd = new FormData();
         fd.append('action', 'cashout');
-        const res = await fetch('process_mines.php', {
-            method: 'POST',
-            body: fd
-        }).then(r => r.json());
-        if (res.success) {
-            document.getElementById('balance').innerText = res.balance.toLocaleString();
-            document.getElementById('msg').innerHTML =
-                `<span class="text-emerald-400">Đã chốt: +${res.winnings.toLocaleString()}đ</span>`;
-            resetUI();
+
+        try {
+            const res = await fetch('process_mines.php', {
+                method: 'POST',
+                body: fd
+            }).then(r => r.json());
+
+            if (res.success) {
+                document.getElementById('balance').innerText = Number(res.balance).toLocaleString('vi-VN');
+                document.getElementById('msg').innerHTML =
+                    `<span class="text-emerald-400">Đã chốt: +${Number(res.winnings).toLocaleString('vi-VN')}đ</span>`;
+                resetUI();
+            }
+        } finally {
+            isProcessing = false;
         }
     }
 
@@ -176,6 +202,6 @@ $user = $stmt->fetch();
         document.getElementById('cashoutBtn').classList.add('hidden');
     }
     </script>
-</body>
+    /body>
 
-</html>
+    < /html>
