@@ -13,9 +13,9 @@ $action = $_POST['action'] ?? '';
 
 // [QUAN TRỌNG] Đặt lệnh ALTER TABLE bên ngoài Transaction để chống lỗi Implicit Commit của MySQL
 try {
-    $pdo->exec("ALTER TABLE settings ADD COLUMN mines_add_money INT DEFAULT 5000");
+    $pdo->exec("ALTER TABLE settings ADD COLUMN mines_multiplier FLOAT DEFAULT 1.2");
     $pdo->exec("ALTER TABLE settings ADD COLUMN mines_win_rate INT DEFAULT 40");
-    $pdo->exec("ALTER TABLE users ADD COLUMN mines_count INT DEFAULT 0"); // Tự động tạo cột nhiệm vụ dò mìn
+    $pdo->exec("ALTER TABLE users ADD COLUMN mines_count INT DEFAULT 0");
 } catch (Exception $e) {
     // Bỏ qua nếu cột đã tồn tại
 }
@@ -69,9 +69,9 @@ if ($action === 'start') {
         // -------------------------------------
 
         // Lấy cài đặt mìn và tiền cộng cố định từ DB
-        $settings = $pdo->query("SELECT mines_bombs, mines_add_money FROM settings WHERE id = 1")->fetch();
+        $settings = $pdo->query("SELECT mines_bombs, mines_multiplier FROM settings WHERE id = 1")->fetch();
         $bombs = (int)$settings['mines_bombs'];
-        $mines_add = (int)($settings['mines_add_money'] ?? 5000);
+        $mines_mul = (float)($settings['mines_multiplier'] ?? 1.2);
 
         if ($bombs < 1 || $bombs > 24) $bombs = 3;
 
@@ -87,7 +87,7 @@ if ($action === 'start') {
             'pot' => $bet, // Quỹ ban đầu bằng tiền cược
             'board' => $board,
             'bombs' => $bombs,
-            'mines_add' => $mines_add, // Lưu mức cộng tiền vào phiên chơi
+            'mines_mul' => $mines_mul, // Lưu hệ số nhân vào phiên chơi
             'step' => 0,
             'status' => 'playing'
         ];
@@ -130,9 +130,9 @@ if ($action === 'open') {
         unset($_SESSION['mines']);
         echo json_encode(['success' => true, 'is_bomb' => true, 'board' => $mines['board']]);
     } else {
-        // An toàn -> Cộng tiền cố định thay vì nhân hệ số
+        // An toàn -> Nhân tiền theo hệ số (làm tròn hàng ngàn)
         $mines['step']++;
-        $mines['pot'] += $mines['mines_add'];
+        $mines['pot'] = (int)round(($mines['pot'] * $mines['mines_mul']) / 1000) * 1000;
 
         $_SESSION['mines'] = $mines;
 

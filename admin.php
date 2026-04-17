@@ -61,9 +61,9 @@ if (isset($_POST['update_minigame_settings'])) {
         $bj_wr = (int)($_POST['blackjack_win_rate'] ?? 40);
         $hilo_wr = (int)($_POST['hilo_win_rate'] ?? 40);
         $mines_wr = (int)($_POST['mines_win_rate'] ?? 40);
-        $mines_add = (int)($_POST['mines_add_money'] ?? 5000);
+        $mines_mul = (float)($_POST['mines_multiplier'] ?? 1.2); // Thay đổi ở đây
 
-        // 1. Kiểm tra xem bảng settings đã có dòng id = 1 chưa. Nếu chưa có thì tự động tạo mới.
+        // 1. Kiểm tra xem bảng settings đã có dòng id = 1 chưa.
         $check = $pdo->query("SELECT id FROM settings WHERE id = 1")->fetch();
         if (!$check) {
             $pdo->exec("INSERT INTO settings (id) VALUES (1)");
@@ -72,9 +72,9 @@ if (isset($_POST['update_minigame_settings'])) {
         // 2. Chạy lệnh Update cấu hình
         $stmt = $pdo->prepare("UPDATE settings SET 
             mines_bombs = ?, baucua_multiplier = ?, blackjack_multiplier = ?, hilo_multiplier = ?, 
-            baucua_win_rate = ?, blackjack_win_rate = ?, hilo_win_rate = ?, mines_win_rate = ?, mines_add_money = ? 
+            baucua_win_rate = ?, blackjack_win_rate = ?, hilo_win_rate = ?, mines_win_rate = ?, mines_multiplier = ? 
             WHERE id = 1");
-        $stmt->execute([$m_bombs, $bc_mul, $bj_mul, $hilo_mul, $bc_wr, $bj_wr, $hilo_wr, $mines_wr, $mines_add]);
+        $stmt->execute([$m_bombs, $bc_mul, $bj_mul, $hilo_mul, $bc_wr, $bj_wr, $hilo_wr, $mines_wr, $mines_mul]); // Đổi biến cuối thành $mines_mul
 
         $_SESSION['msg'] = "✅ Đã cập nhật cấu hình Minigame!";
     } catch (Exception $e) {
@@ -796,10 +796,10 @@ $pending_gifts = $pdo->query("SELECT COUNT(*) FROM user_gifts WHERE status='pend
                                                 class="w-full px-3 py-2 border rounded-lg text-sm">
                                         </div>
                                         <div>
-                                            <label class="block text-xs font-bold text-slate-500 mb-1">Tiền cộng /
+                                            <label class="block text-xs font-bold text-slate-500 mb-1">Hệ số nhân /
                                                 bước</label>
-                                            <input type="number" name="mines_add_money"
-                                                value="<?= $settings['mines_add_money'] ?? 5000 ?>"
+                                            <input type="number" step="0.01" name="mines_multiplier"
+                                                value="<?= $settings['mines_multiplier'] ?? 1.2 ?>"
                                                 class="w-full px-3 py-2 border rounded-lg text-sm">
                                         </div>
                                     </div>
