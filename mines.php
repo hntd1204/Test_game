@@ -5,9 +5,27 @@ if (!isset($_SESSION['user_id'])) {
     header("Location: login.php");
     exit;
 }
+
+// Đảm bảo cột mines_count tồn tại (phòng hờ nếu admin chưa ấn nút cập nhật)
+try {
+    $pdo->exec("ALTER TABLE users ADD COLUMN mines_count INT DEFAULT 0");
+} catch (Exception $e) {
+}
+
 $stmt = $pdo->prepare("SELECT balance, mines_count FROM users WHERE id = ?");
 $stmt->execute([$_SESSION['user_id']]);
 $user = $stmt->fetch();
+
+// Lấy cấu hình nhiệm vụ Dò mìn
+try {
+    $missionStmt = $pdo->query("SELECT target_count, reward_spins FROM mission_settings WHERE mission_key = 'mines_count'");
+    $mission = $missionStmt->fetch();
+    if (!$mission) {
+        $mission = ['target_count' => 5, 'reward_spins' => 1];
+    }
+} catch (Exception $e) {
+    $mission = ['target_count' => 5, 'reward_spins' => 1];
+}
 ?>
 <!DOCTYPE html>
 <html lang="vi">
@@ -41,6 +59,13 @@ $user = $stmt->fetch();
         class="bg-slate-800/80 backdrop-blur-md border-b border-slate-700 px-4 py-3 flex justify-between items-center sticky top-0 z-50">
         <h1 class="text-xl font-bold text-emerald-400 uppercase tracking-wider">Dò Mìn</h1>
         <div class="flex items-center gap-3">
+            <div
+                class="hidden sm:flex bg-emerald-900/50 border border-emerald-500/30 px-3 py-1 rounded-full text-[10px] items-center gap-1">
+                <span class="text-emerald-300">Nhiệm vụ:</span>
+                <span id="missionProgress"
+                    class="font-bold text-white"><?= (int)$user['mines_count'] ?>/<?= $mission['target_count'] ?></span>
+            </div>
+
             <div
                 class="bg-slate-900 border border-emerald-500/30 px-4 py-1.5 rounded-full flex items-center gap-2 shadow-inner">
                 <span class="text-amber-400 text-sm">💰</span>
@@ -90,9 +115,8 @@ $user = $stmt->fetch();
     </main>
 
     <script>
-        // Giữ nguyên logic JS cũ của bạn, chỉ tinh chỉnh hiệu ứng hiển thị
         let isPlaying = false;
-        let isProcessing = false; // Thêm cờ chặn spam click
+        let isProcessing = false; // Cờ chặn spam click
 
         async function startGame() {
             if (isProcessing) return;
@@ -112,9 +136,20 @@ $user = $stmt->fetch();
                 if (!res.success) return alert(res.error);
 
                 isPlaying = true;
-                // Ép kiểu Number() để dấu phẩy hiển thị chuẩn 100%
+
                 document.getElementById('balance').innerText = Number(res.balance).toLocaleString('vi-VN');
                 document.getElementById('pot').innerText = Number(res.pot).toLocaleString('vi-VN');
+
+                // Cập nhật UI nhiệm vụ & thông báo hoàn thành
+                if (res.mission) {
+                    const progressSpan = document.getElementById('missionProgress');
+                    if (progressSpan && res.mission.current !== undefined) {
+                        progressSpan.innerText = `${res.mission.current}/${res.mission.target}`;
+                    }
+                    if (res.mission.rewarded) {
+                        alert("🎁 Chúc mừng! Bạn đã hoàn thành nhiệm vụ Dò Mìn và nhận được lượt quay miễn phí!");
+                    }
+                }
 
                 document.getElementById('startBtn').classList.add('hidden');
                 document.getElementById('betAmount').classList.add('hidden');
@@ -137,8 +172,8 @@ $user = $stmt->fetch();
 
         async function openTile(index, btn) {
             if (!isPlaying || btn.disabled || isProcessing) return;
-            isProcessing = true; // Khóa thao tác
-            btn.disabled = true; // Disable ô bấm ngay lập tức
+            isProcessing = true;
+            btn.disabled = true;
 
             const fd = new FormData();
             fd.append('action', 'open');
@@ -172,7 +207,7 @@ $user = $stmt->fetch();
         async function cashout() {
             if (!isPlaying || isProcessing) return;
             isProcessing = true;
-            isPlaying = false; // Dừng game ngay lập tức để chặn bấm tiếp mìn
+            isPlaying = false;
 
             const fd = new FormData();
             fd.append('action', 'cashout');

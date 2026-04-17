@@ -171,7 +171,7 @@ if (isset($_POST['add_mission'])) {
     $game_type = $_POST['game_type'];
     $target = (int)$_POST['target_count'];
     $reward = (int)$_POST['reward_spins'];
-    $mapping = ['baucua' => 'baucua_count', 'blackjack' => 'blackjack_count', 'hilo' => 'hilo_count'];
+    $mapping = ['baucua' => 'baucua_count', 'blackjack' => 'blackjack_count', 'hilo' => 'hilo_count', 'mines' => 'mines_count'];
     $key = $mapping[$game_type] ?? 'baucua_count';
     $pdo->prepare("INSERT INTO mission_settings (mission_name, mission_key, target_count, reward_spins) VALUES (?, ?, ?, ?)")->execute([$name, $key, $target, $reward]);
     try {
@@ -828,6 +828,7 @@ $pending_gifts = $pdo->query("SELECT COUNT(*) FROM user_gifts WHERE status='pend
                                         <option value="baucua">Bầu Cua Tôm Cá</option>
                                         <option value="blackjack">Xì Dách</option>
                                         <option value="hilo">Lật Bài (Hi-Lo)</option>
+                                        <option value="mines">Dò Mìn</option>
                                     </select>
                                 </div>
                                 <div class="flex gap-2">

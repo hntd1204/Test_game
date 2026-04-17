@@ -15,6 +15,7 @@ $action = $_POST['action'] ?? '';
 try {
     $pdo->exec("ALTER TABLE settings ADD COLUMN mines_add_money INT DEFAULT 5000");
     $pdo->exec("ALTER TABLE settings ADD COLUMN mines_win_rate INT DEFAULT 40");
+    $pdo->exec("ALTER TABLE users ADD COLUMN mines_count INT DEFAULT 0"); // Tự động tạo cột nhiệm vụ dò mìn
 } catch (Exception $e) {
     // Bỏ qua nếu cột đã tồn tại
 }
@@ -38,9 +39,34 @@ if ($action === 'start') {
             exit;
         }
 
-        // Trừ tiền cược
+        // Trừ tiền cược và tăng tiến độ nhiệm vụ
         $newBalance = $user['balance'] - $bet;
-        $pdo->prepare("UPDATE users SET balance = ? WHERE id = ?")->execute([$newBalance, $userId]);
+        $pdo->prepare("UPDATE users SET balance = ?, mines_count = mines_count + 1 WHERE id = ?")->execute([$newBalance, $userId]);
+
+        // --- XỬ LÝ KIỂM TRA NHIỆM VỤ DÒ MÌN ---
+        $mission_info = ['rewarded' => false];
+        $currentCount = $pdo->query("SELECT mines_count FROM users WHERE id = $userId")->fetchColumn();
+        $missions = $pdo->query("SELECT * FROM mission_settings WHERE mission_key = 'mines_count'")->fetchAll();
+
+        foreach ($missions as $m) {
+            if ($currentCount == $m['target_count']) {
+                $pdo->prepare("UPDATE users SET spins_available = spins_available + ? WHERE id = ?")
+                    ->execute([$m['reward_spins'], $userId]);
+                $mission_info = [
+                    'rewarded' => true,
+                    'current' => $currentCount,
+                    'target' => $m['target_count']
+                ];
+                break;
+            }
+        }
+
+        // Lấy lại tiến độ để hiện UI nếu chưa hoàn thành
+        if (!$mission_info['rewarded'] && count($missions) > 0) {
+            $mission_info['current'] = $currentCount;
+            $mission_info['target'] = $missions[0]['target_count'];
+        }
+        // -------------------------------------
 
         // Lấy cài đặt mìn và tiền cộng cố định từ DB
         $settings = $pdo->query("SELECT mines_bombs, mines_add_money FROM settings WHERE id = 1")->fetch();
@@ -67,7 +93,8 @@ if ($action === 'start') {
         ];
 
         $pdo->commit();
-        echo json_encode(['success' => true, 'balance' => $newBalance, 'pot' => $bet, 'bombs' => $bombs]);
+        // Trả thêm $mission_info về cho Javascript
+        echo json_encode(['success' => true, 'balance' => $newBalance, 'pot' => $bet, 'bombs' => $bombs, 'mission' => $mission_info]);
     } catch (Exception $e) {
         $pdo->rollBack();
         echo json_encode(['success' => false, 'error' => 'Lỗi hệ thống']);
@@ -123,8 +150,8 @@ if ($action === 'cashout') {
 
     $pdo->beginTransaction();
     try {
-        // Trả tiền thưởng và tăng tiến độ đếm (nếu cần cho nhiệm vụ)
-        $pdo->prepare("UPDATE users SET balance = balance + ?, mines_count = mines_count + 1 WHERE id = ?")->execute([$mines['pot'], $userId]);
+        // Trả tiền thưởng (Bỏ cộng tiến độ ở đây vì đã xử lý ở action = start)
+        $pdo->prepare("UPDATE users SET balance = balance + ? WHERE id = ?")->execute([$mines['pot'], $userId]);
 
         // Ghi lại lịch sử
         $pdo->prepare("INSERT INTO mines_history (user_id, bet, win, net_profit, bombs, steps) VALUES (?, ?, ?, ?, ?, ?)")
