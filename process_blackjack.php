@@ -11,13 +11,15 @@ if (!isset($_SESSION['user_id']) || $_SESSION['role'] !== 'user') {
 $userId = $_SESSION['user_id'];
 $action = $_POST['action'] ?? '';
 
-// --- LẤY HỆ SỐ NHÂN TỪ BẢNG SETTINGS ---
+// --- LẤY HỆ SỐ NHÂN VÀ TỶ LỆ THẮNG TỪ BẢNG SETTINGS ---
 try {
-    $settingsStmt = $pdo->query("SELECT blackjack_multiplier FROM settings WHERE id = 1");
+    $settingsStmt = $pdo->query("SELECT blackjack_multiplier, blackjack_win_rate FROM settings WHERE id = 1");
     $settings = $settingsStmt->fetch();
     $bj_mul = (float)($settings['blackjack_multiplier'] ?? 2.0);
+    $win_rate = (int)($settings['blackjack_win_rate'] ?? 40); // Tỷ lệ thắng mặc định 40%
 } catch (Exception $e) {
-    $bj_mul = 2.0; // Dự phòng nếu chưa có cột
+    $bj_mul = 2.0;
+    $win_rate = 40;
 }
 
 // Hàm tạo bộ bài
@@ -111,6 +113,9 @@ function handleBlackjackMission($pdo, $userId)
     return $mission_info;
 }
 
+// ==========================================
+// 1. XỬ LÝ CHIA BÀI (DEAL)
+// ==========================================
 if ($action === 'deal') {
     $bet = (int)($_POST['bet'] ?? 0);
     if ($bet <= 0) {
@@ -134,23 +139,43 @@ if ($action === 'deal') {
         $pdo->prepare("UPDATE users SET balance = ? WHERE id = ?")->execute([$newBalance, $userId]);
 
         $deck = getDeck();
+
+        // Gieo xúc xắc xem ván này Nhà Cái có ép chết User không
+        $is_rigged = (rand(1, 100) > $win_rate);
+
         $playerHand = [array_pop($deck), array_pop($deck)];
         $dealerHand = [array_pop($deck), array_pop($deck)];
+
+        $pType = checkType($playerHand);
+
+        // NẾU ÉP THUA: Không cho phép User được Xì Bàng hoặc Xì Dách ngay từ đầu
+        if ($is_rigged && ($pType == 'xibang' || $pType == 'xidach')) {
+            // Tráo lá bài thứ 2 của user thành 1 lá rác (từ 2 đến 7)
+            foreach ($deck as $k => $c) {
+                if (is_numeric($c['rank']) && (int)$c['rank'] >= 2 && (int)$c['rank'] <= 7) {
+                    $playerHand[1] = $c; // Đổi bài
+                    unset($deck[$k]);
+                    $deck = array_values($deck); // Re-index
+                    break;
+                }
+            }
+            $pType = checkType($playerHand); // Cập nhật lại trạng thái bài
+        }
 
         $_SESSION['bj'] = [
             'deck' => $deck,
             'player' => $playerHand,
             'dealer' => $dealerHand,
             'bet' => $bet,
-            'status' => 'playing'
+            'status' => 'playing',
+            'rigged' => $is_rigged // Lưu cờ ép thua vào phiên chơi
         ];
 
-        $pType = checkType($playerHand);
         $isEnd = false;
         $message = '';
         $winnings = 0;
 
-        // Xử lý Xì Dách / Xì Bàng ngay từ đầu
+        // Xử lý Xì Dách / Xì Bàng ngay từ đầu (Nếu không bị ép thì vẫn win)
         if ($pType == 'xibang' || $pType == 'xidach') {
             $dType = checkType($dealerHand);
             if ($dType == 'xibang' || $dType == 'xidach') {
@@ -167,8 +192,6 @@ if ($action === 'deal') {
             $newBalance += $winnings;
             $pdo->prepare("UPDATE users SET balance = ? WHERE id = ?")->execute([$newBalance, $userId]);
             saveHistory($pdo, $userId, $bet, $winnings);
-
-            // Cập nhật nhiệm vụ
             $mission_info = handleBlackjackMission($pdo, $userId);
 
             $pdo->commit();
@@ -195,7 +218,7 @@ if ($action === 'deal') {
             'success' => true,
             'is_end' => false,
             'player' => $playerHand,
-            'dealer' => [$dealerHand[0]], // Giấu lá thứ 2
+            'dealer' => [$dealerHand[0]], // Giấu lá thứ 2 của nhà cái
             'player_score' => calcScore($playerHand),
             'balance' => $newBalance
         ]);
@@ -206,6 +229,9 @@ if ($action === 'deal') {
     exit;
 }
 
+// ==========================================
+// 2. XỬ LÝ RÚT BÀI (HIT)
+// ==========================================
 if ($action === 'hit') {
     if (!isset($_SESSION['bj']) || $_SESSION['bj']['status'] !== 'playing') {
         echo json_encode(['success' => false, 'error' => 'Ván chơi không tồn tại']);
@@ -213,7 +239,32 @@ if ($action === 'hit') {
     }
 
     $bj = $_SESSION['bj'];
-    $bj['player'][] = array_pop($bj['deck']);
+    $is_rigged = $bj['rigged'] ?? false;
+
+    // NẾU ÉP THUA & LÁ RÚT LÀ LÁ THỨ 5 (Ngũ Linh): Ép cho rút phải lá làm Quắc bài
+    if ($is_rigged && count($bj['player']) == 4) {
+        $bustCardIdx = -1;
+        foreach ($bj['deck'] as $idx => $card) {
+            $tempHand = array_merge($bj['player'], [$card]);
+            if (calcScore($tempHand) > 21) {
+                $bustCardIdx = $idx;
+                break;
+            }
+        }
+
+        // Nếu tìm được lá làm quắc, tráo nó lên cho rút
+        if ($bustCardIdx !== -1) {
+            $nextCard = $bj['deck'][$bustCardIdx];
+            unset($bj['deck'][$bustCardIdx]);
+            $bj['deck'] = array_values($bj['deck']);
+        } else {
+            $nextCard = array_pop($bj['deck']);
+        }
+    } else {
+        $nextCard = array_pop($bj['deck']); // Rút bình thường
+    }
+
+    $bj['player'][] = $nextCard;
 
     $score = calcScore($bj['player']);
     $type = checkType($bj['player']);
@@ -240,8 +291,6 @@ if ($action === 'hit') {
         if ($winnings > 0) $pdo->prepare("UPDATE users SET balance = ? WHERE id = ?")->execute([$newBalance, $userId]);
 
         saveHistory($pdo, $userId, $bj['bet'], $winnings);
-
-        // Cập nhật nhiệm vụ
         $mission_info = handleBlackjackMission($pdo, $userId);
 
         $pdo->commit();
@@ -270,6 +319,9 @@ if ($action === 'hit') {
     exit;
 }
 
+// ==========================================
+// 3. XỬ LÝ NHÀ CÁI RÚT (STAND)
+// ==========================================
 if ($action === 'stand') {
     if (!isset($_SESSION['bj']) || $_SESSION['bj']['status'] !== 'playing') {
         echo json_encode(['success' => false, 'error' => 'Ván chơi không tồn tại']);
@@ -278,10 +330,58 @@ if ($action === 'stand') {
 
     $bj = $_SESSION['bj'];
     $playerScore = calcScore($bj['player']);
+    $is_rigged = $bj['rigged'] ?? false;
 
-    // Nhà cái rút bài nếu dưới 16 điểm và chưa đủ 5 lá
-    while (calcScore($bj['dealer']) < 16 && count($bj['dealer']) < 5) {
-        $bj['dealer'][] = array_pop($bj['deck']);
+    if ($is_rigged) {
+        // --- THUẬT TOÁN NHÀ CÁI GIAN LẬN ---
+        // Nhà cái cố tình chọn lá bài tốt nhất trong Deck để lớn điểm hơn User mà không bị Quắc
+        while (count($bj['dealer']) < 5) {
+            $dScore = calcScore($bj['dealer']);
+            if ($dScore > $playerScore && $dScore <= 21) break; // Đã đủ điểm giết User
+
+            $bestIdx = -1;
+            foreach ($bj['deck'] as $idx => $c) {
+                $tScore = calcScore(array_merge($bj['dealer'], [$c]));
+                if ($tScore <= 21) {
+                    $bestIdx = $idx;
+                    // Tối ưu: Nếu lá này đủ giết user thì bốc luôn
+                    if ($tScore > $playerScore) break;
+                }
+            }
+
+            if ($bestIdx !== -1) {
+                $bj['dealer'][] = $bj['deck'][$bestIdx];
+                unset($bj['deck'][$bestIdx]);
+                $bj['deck'] = array_values($bj['deck']);
+            } else {
+                break; // Không còn lá nào an toàn, đành chịu
+            }
+        }
+
+        // BÙA CHÚ TỐI THƯỢNG: Nếu tìm mọi cách rút vẫn không thắng nổi User (do bài quá tệ)
+        // Nhà cái sẽ "phù phép" đổi trực tiếp lá bài đang úp thành 1 lá giúp tổng điểm ra đúng 21.
+        $finalScore = calcScore($bj['dealer']);
+        if ($finalScore <= $playerScore && $finalScore <= 21) {
+            $first = $bj['dealer'][0]; // Lấy lá đầu tiên (lá user đã nhìn thấy)
+            $val1 = ($first['rank'] === 'A') ? 11 : (in_array($first['rank'], ['J', 'Q', 'K']) ? 10 : (int)$first['rank']);
+
+            $needed = 21 - $val1; // Số điểm cần bù để tròn 21
+
+            if ($needed == 11) $rank2 = 'A';
+            elseif ($needed >= 2 && $needed <= 10) $rank2 = (string)$needed;
+            else $rank2 = 'K'; // Mặc định trả về Tây
+
+            // Xóa hết bài xui xẻo vừa rút, chỉ chừa lại đúng 2 lá để ăn điểm 21 hoàn hảo
+            $bj['dealer'] = [
+                $first,
+                ['rank' => $rank2, 'suit' => '♠', 'color' => 'black']
+            ];
+        }
+    } else {
+        // XANH CHÍN: Nhà cái rút bài tuân theo luật Casino (Dưới 16 bắt buộc rút)
+        while (calcScore($bj['dealer']) < 16 && count($bj['dealer']) < 5) {
+            $bj['dealer'][] = array_pop($bj['deck']);
+        }
     }
 
     $dealerScore = calcScore($bj['dealer']);
@@ -314,8 +414,6 @@ if ($action === 'stand') {
     if ($winnings > 0) $pdo->prepare("UPDATE users SET balance = ? WHERE id = ?")->execute([$newBalance, $userId]);
 
     saveHistory($pdo, $userId, $bj['bet'], $winnings);
-
-    // Cập nhật nhiệm vụ
     $mission_info = handleBlackjackMission($pdo, $userId);
 
     $pdo->commit();

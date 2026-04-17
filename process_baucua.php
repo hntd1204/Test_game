@@ -59,15 +59,41 @@ try {
     // Trừ tiền cược
     $newBalance = $user['balance'] - $totalBet;
 
-    // --- LẤY HỆ SỐ NHÂN TỪ BẢNG SETTINGS ---
-    $settingsStmt = $pdo->query("SELECT baucua_multiplier FROM settings WHERE id = 1");
+    // --- LẤY HỆ SỐ NHÂN VÀ TỶ LỆ THẮNG TỪ BẢNG SETTINGS ---
+    $settingsStmt = $pdo->query("SELECT baucua_multiplier, baucua_win_rate FROM settings WHERE id = 1");
     $settings = $settingsStmt->fetch();
     $baucua_mul = (float)($settings['baucua_multiplier'] ?? 1.0);
+    $win_rate = (int)($settings['baucua_win_rate'] ?? 40); // Mặc định tỷ lệ thắng 40% nếu chưa có
 
     // Lắc xí ngầu
     $dice = [];
-    for ($i = 0; $i < 3; $i++) {
-        $dice[] = $valid_options[array_rand($valid_options)];
+
+    // Quyết định ván này cho User thắng hay thua
+    $is_rigged_to_lose = (rand(1, 100) > $win_rate);
+
+    if ($is_rigged_to_lose) {
+        // TÌM Ô CƯỢC ĐỂ NHÀ CÁI KHÔNG LỖ
+        // Tìm các con vật mà người chơi KHÔNG đặt cược
+        $unbet_options = array_diff($valid_options, array_keys($bets));
+
+        // Chống lỗi mảng rỗng (dù code đã chặn cược > 3 ô, nhưng cứ phòng hờ)
+        if (empty($unbet_options)) {
+            asort($bets); // Sắp xếp mảng bets tăng dần
+            $unbet_options = [array_key_first($bets)]; // Bốc ô cược ít tiền nhất
+        } else {
+            // Re-index mảng để dùng array_rand một cách an toàn
+            $unbet_options = array_values($unbet_options);
+        }
+
+        // Đổ xí ngầu cố tình rơi vào các ô nhà cái an toàn
+        for ($i = 0; $i < 3; $i++) {
+            $dice[] = $unbet_options[array_rand($unbet_options)];
+        }
+    } else {
+        // Xanh chín (Random bình thường nếu rơi vào % chiến thắng của user)
+        for ($i = 0; $i < 3; $i++) {
+            $dice[] = $valid_options[array_rand($valid_options)];
+        }
     }
 
     $winnings = 0;

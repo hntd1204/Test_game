@@ -14,12 +14,25 @@ if (isset($_SESSION['msg'])) {
     unset($_SESSION['msg']);
 }
 
-try {
-    $pdo->exec("ALTER TABLE settings ADD COLUMN baucua_multiplier FLOAT DEFAULT 1.0");
-    $pdo->exec("ALTER TABLE settings ADD COLUMN blackjack_multiplier FLOAT DEFAULT 2.0");
-    $pdo->exec("ALTER TABLE settings ADD COLUMN hilo_multiplier FLOAT DEFAULT 1.2");
-    $pdo->exec("ALTER TABLE settings ADD COLUMN mines_multiplier FLOAT DEFAULT 1.2");
-} catch (Exception $e) {
+// Tự động kiểm tra và thêm các cột còn thiếu một cách độc lập
+$new_columns = [
+    "baucua_multiplier FLOAT DEFAULT 1.0",
+    "blackjack_multiplier FLOAT DEFAULT 2.0",
+    "hilo_multiplier FLOAT DEFAULT 1.2",
+    "baucua_win_rate INT DEFAULT 40",
+    "blackjack_win_rate INT DEFAULT 40",
+    "hilo_win_rate INT DEFAULT 40",
+    "mines_win_rate INT DEFAULT 40",
+    "mines_add_money INT DEFAULT 5000",
+    "mines_bombs INT DEFAULT 3"
+];
+
+foreach ($new_columns as $col) {
+    try {
+        $pdo->exec("ALTER TABLE settings ADD COLUMN $col");
+    } catch (Exception $e) {
+        // Nếu cột đã tồn tại thì bỏ qua và tiếp tục tạo cột tiếp theo
+    }
 }
 
 // 1A. Xử lý lưu cài đặt hệ thống vòng quay
@@ -37,16 +50,38 @@ if (isset($_POST['update_system_settings'])) {
 
 // 1B. Xử lý lưu cài đặt minigame
 if (isset($_POST['update_minigame_settings'])) {
-    $m_bombs = (int)($_POST['mines_bombs'] ?? 3);
-    $bc_mul = (float)($_POST['baucua_multiplier'] ?? 1.0);
-    $bj_mul = (float)($_POST['blackjack_multiplier'] ?? 2.0);
-    $hilo_mul = (float)($_POST['hilo_multiplier'] ?? 1.2);
-    $mines_mul = (float)($_POST['mines_multiplier'] ?? 1.2);
+    try {
+        $m_bombs = (int)($_POST['mines_bombs'] ?? 3);
+        $bc_mul = (float)($_POST['baucua_multiplier'] ?? 1.0);
+        $bj_mul = (float)($_POST['blackjack_multiplier'] ?? 2.0);
+        $hilo_mul = (float)($_POST['hilo_multiplier'] ?? 1.2);
 
-    $stmt = $pdo->prepare("UPDATE settings SET mines_bombs = ?, baucua_multiplier = ?, blackjack_multiplier = ?, hilo_multiplier = ?, mines_multiplier = ? WHERE id = 1");
-    $stmt->execute([$m_bombs, $bc_mul, $bj_mul, $hilo_mul, $mines_mul]);
+        // Lấy thông số Win Rate và Tiền cộng dò mìn
+        $bc_wr = (int)($_POST['baucua_win_rate'] ?? 40);
+        $bj_wr = (int)($_POST['blackjack_win_rate'] ?? 40);
+        $hilo_wr = (int)($_POST['hilo_win_rate'] ?? 40);
+        $mines_wr = (int)($_POST['mines_win_rate'] ?? 40);
+        $mines_add = (int)($_POST['mines_add_money'] ?? 5000);
 
-    $_SESSION['msg'] = "✅ Đã cập nhật cấu hình Minigame!";
+        // 1. Kiểm tra xem bảng settings đã có dòng id = 1 chưa. Nếu chưa có thì tự động tạo mới.
+        $check = $pdo->query("SELECT id FROM settings WHERE id = 1")->fetch();
+        if (!$check) {
+            $pdo->exec("INSERT INTO settings (id) VALUES (1)");
+        }
+
+        // 2. Chạy lệnh Update cấu hình
+        $stmt = $pdo->prepare("UPDATE settings SET 
+            mines_bombs = ?, baucua_multiplier = ?, blackjack_multiplier = ?, hilo_multiplier = ?, 
+            baucua_win_rate = ?, blackjack_win_rate = ?, hilo_win_rate = ?, mines_win_rate = ?, mines_add_money = ? 
+            WHERE id = 1");
+        $stmt->execute([$m_bombs, $bc_mul, $bj_mul, $hilo_mul, $bc_wr, $bj_wr, $hilo_wr, $mines_wr, $mines_add]);
+
+        $_SESSION['msg'] = "✅ Đã cập nhật cấu hình Minigame!";
+    } catch (Exception $e) {
+        // Bắt lỗi SQL nếu có và in ra màn hình để Admin dễ sửa
+        $_SESSION['msg'] = "❌ Lỗi lưu cấu hình: " . $e->getMessage();
+    }
+
     header("Location: admin.php");
     exit;
 }
@@ -703,60 +738,75 @@ $pending_gifts = $pdo->query("SELECT COUNT(*) FROM user_gifts WHERE status='pend
 
                     <div class="bg-white p-6 rounded-2xl shadow-sm border border-slate-200 mt-6">
                         <h2 class="text-lg font-bold text-slate-800 mb-4 border-b pb-2">🎮 Cài đặt Minigame </h2>
-                        <form method="POST" class="space-y-4">
-                            <input type="hidden" name="min_reward" value="<?= $settings['min_reward'] ?>">
-                            <input type="hidden" name="max_reward" value="<?= $settings['max_reward'] ?>">
-
+                        <form method="POST">
                             <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
                                 <div class="bg-slate-50 p-4 rounded-xl border border-slate-100">
                                     <h3 class="font-bold text-sm text-slate-700 mb-3">🎲 Bầu Cua</h3>
-                                    <label class="block text-xs font-bold text-slate-500 mb-1">Hệ số nhân (Mặc định 1.0
-                                        = X1 vốn)</label>
+                                    <label class="block text-xs font-bold text-slate-500 mb-1">Tỷ lệ User thắng
+                                        (%)</label>
+                                    <input type="number" name="baucua_win_rate"
+                                        value="<?= $settings['baucua_win_rate'] ?? 40 ?>" min="0" max="100"
+                                        class="w-full px-3 py-2 border rounded-lg text-sm text-blue-600 font-bold mb-2">
+                                    <label class="block text-xs font-bold text-slate-500 mb-1">Hệ số nhân</label>
                                     <input type="number" step="0.1" name="baucua_multiplier"
-                                        value="<?= $settings['baucua_multiplier'] ?? 1.0 ?>" required
-                                        class="w-full px-3 py-2 border rounded-lg text-sm text-blue-600 font-bold">
+                                        value="<?= $settings['baucua_multiplier'] ?? 1.0 ?>"
+                                        class="w-full px-3 py-2 border rounded-lg text-sm">
                                 </div>
 
                                 <div class="bg-slate-50 p-4 rounded-xl border border-slate-100">
                                     <h3 class="font-bold text-sm text-slate-700 mb-3">🃏 Xì Dách</h3>
-                                    <label class="block text-xs font-bold text-slate-500 mb-1">Hệ số trả thưởng (Mặc
-                                        định 2.0 = Trả cả gốc lẫn lãi)</label>
+                                    <label class="block text-xs font-bold text-slate-500 mb-1">Tỷ lệ User thắng
+                                        (%)</label>
+                                    <input type="number" name="blackjack_win_rate"
+                                        value="<?= $settings['blackjack_win_rate'] ?? 40 ?>" min="0" max="100"
+                                        class="w-full px-3 py-2 border rounded-lg text-sm text-emerald-600 font-bold mb-2">
+                                    <label class="block text-xs font-bold text-slate-500 mb-1">Hệ số trả thưởng</label>
                                     <input type="number" step="0.1" name="blackjack_multiplier"
-                                        value="<?= $settings['blackjack_multiplier'] ?? 2.0 ?>" required
-                                        class="w-full px-3 py-2 border rounded-lg text-sm text-emerald-600 font-bold">
+                                        value="<?= $settings['blackjack_multiplier'] ?? 2.0 ?>"
+                                        class="w-full px-3 py-2 border rounded-lg text-sm">
                                 </div>
 
                                 <div class="bg-slate-50 p-4 rounded-xl border border-slate-100">
                                     <h3 class="font-bold text-sm text-slate-700 mb-3">👆👇 Hi-Lo</h3>
-                                    <label class="block text-xs font-bold text-slate-500 mb-1">Hệ số nhân / lần lật đúng
-                                        (VD: 1.2 = +20% Pot)</label>
+                                    <label class="block text-xs font-bold text-slate-500 mb-1">Tỷ lệ User thắng
+                                        (%)</label>
+                                    <input type="number" name="hilo_win_rate"
+                                        value="<?= $settings['hilo_win_rate'] ?? 40 ?>" min="0" max="100"
+                                        class="w-full px-3 py-2 border rounded-lg text-sm text-indigo-600 font-bold mb-2">
+                                    <label class="block text-xs font-bold text-slate-500 mb-1">Hệ số nhân / lần
+                                        lật</label>
                                     <input type="number" step="0.01" name="hilo_multiplier"
-                                        value="<?= $settings['hilo_multiplier'] ?? 1.2 ?>" required
-                                        class="w-full px-3 py-2 border rounded-lg text-sm text-indigo-600 font-bold">
+                                        value="<?= $settings['hilo_multiplier'] ?? 1.2 ?>"
+                                        class="w-full px-3 py-2 border rounded-lg text-sm">
                                 </div>
 
                                 <div class="bg-slate-50 p-4 rounded-xl border border-slate-100">
                                     <h3 class="font-bold text-sm text-slate-700 mb-3">💣 Dò Mìn</h3>
+                                    <label class="block text-xs font-bold text-slate-500 mb-1">Tỷ lệ User sống sót mỗi
+                                        bước (%)</label>
+                                    <input type="number" name="mines_win_rate"
+                                        value="<?= $settings['mines_win_rate'] ?? 40 ?>" min="0" max="100"
+                                        class="w-full px-3 py-2 border rounded-lg text-sm text-rose-600 font-bold mb-2">
                                     <div class="grid grid-cols-2 gap-2">
                                         <div>
                                             <label class="block text-xs font-bold text-slate-500 mb-1">Số Mìn
                                                 (1-24)</label>
                                             <input type="number" name="mines_bombs"
-                                                value="<?= $settings['mines_bombs'] ?>" min="1" max="24" required
+                                                value="<?= $settings['mines_bombs'] ?>" min="1" max="24"
                                                 class="w-full px-3 py-2 border rounded-lg text-sm">
                                         </div>
                                         <div>
-                                            <label class="block text-xs font-bold text-slate-500 mb-1">Hệ số nhân /
+                                            <label class="block text-xs font-bold text-slate-500 mb-1">Tiền cộng /
                                                 bước</label>
-                                            <input type="number" step="0.01" name="mines_multiplier"
-                                                value="<?= $settings['mines_multiplier'] ?? 1.2 ?>" required
-                                                class="w-full px-3 py-2 border rounded-lg text-sm text-rose-600 font-bold">
+                                            <input type="number" name="mines_add_money"
+                                                value="<?= $settings['mines_add_money'] ?? 5000 ?>"
+                                                class="w-full px-3 py-2 border rounded-lg text-sm">
                                         </div>
                                     </div>
                                 </div>
                             </div>
                             <button type="submit" name="update_minigame_settings"
-                                class="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-3 rounded-xl transition shadow-md">Lưu
+                                class="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-3 rounded-xl transition shadow-md mt-4">Lưu
                                 Cấu Hình Minigame</button>
                         </form>
                     </div>
